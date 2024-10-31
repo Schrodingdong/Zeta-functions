@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile, Depends
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from enum import Enum
+from typing import Optional
 
 import service as docker_service
 
@@ -87,17 +89,36 @@ def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
         }
     return return_message
 
-class ContainerInstanceParameters(BaseModel):
-    container_name: str
-    cmd: str
-    func: str
+
+@app.post("/upload-textfile/")
+async def upload_textfile(file: UploadFile = File(...)): 
+    content = await file.read()
+    text = content.decode("utf-8")
+    # Process the text content here as needed
+    
+    return {"filename": file.filename, "content": text}
+
+async def process_file(file: UploadFile = File(...)):
+    content = await file.read()
+    text = content.decode("utf-8")
+    return {"filename": file.filename, "content": text}
+
 @app.post("/container")
-def instanciate_container(params: ContainerInstanceParameters):
+async def instanciate_container(container_name: str, file: UploadFile = File(...)):
     try:
+        # Read the file from the request
+        file_data = await process_file(file)
+        if file_data == None:
+            raise Exception("Error reading the file")
+
+        func = file_data["content"]
+        print("file data: " + func)
+
+        # Instanciate container
         container_id = docker_service.instanciate_container(
-            container_name= params.container_name,
-            cmd= params.cmd if len(params.cmd) != 0 else "",
-            function = params.func
+            container_name= container_name,
+            cmd= "",
+            function = func
         )
         container = docker_service.get_container(container_id)
         return {
