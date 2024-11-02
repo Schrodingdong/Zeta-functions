@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional
+import requests
+import json
 
 import service as docker_service
 
@@ -143,25 +145,23 @@ def prune_containers():
         "containerList": removed_containers
     }
 
-# Serverlessy
-@app.delete("/serverless/run/{container_id}")
-def prune_containers(container_id: str):
+# Zeta function ===================================
+@app.post("/serverless/run/{container_name_or_id}")
+def run_function(container_name_or_id: str, params: dict = {}):
+    """
+    Proxy to run the function inside the container
+    """
     try:
-        output = docker_service.run_function(container_id)
-        return {
-            "status": "Success",
-            "message": "Sucessfully ran the function",
-            "output": output,
-            "meta": {
-                "None": None
-            }
-        }
-    except:
-        return {
-            "status": "Error",
-            "message": "Error running the function",
-            "output": None,
-            "meta": {
-                "None": None
-            }
-        }
+        container = docker_service.get_container(container_name_or_id)
+        ports = container.ports["8000/tcp"][0]
+    except Exception as e:
+        print("Unable to find container:", str(e))
+    host_ip = ports["HostIp"]
+    host_port = ports["HostPort"]
+    url = "http://" + host_ip + ":" + host_port + "/run"
+    try:
+        response = requests.post(url, data=json.dumps(params))
+        content = response.content.decode()
+        return {"status": "Success", "response": json.loads(content)}
+    except Exception as e:
+        return {"status": "Error", "response": str(e)}

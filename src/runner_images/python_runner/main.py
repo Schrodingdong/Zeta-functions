@@ -1,12 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+import json
 import importlib.util
 import os 
 
 app = FastAPI()
 
-@app.get("/run")
+@app.post("/run")
 def run_handler(params: dict = {}):
     try:
         print("python_runner params:",params)
@@ -21,7 +22,7 @@ def run_handler(params: dict = {}):
         # Call main_handler if it exists in handler.py
         if hasattr(handler_module, "main_handler"):
             response = handler_module.main_handler(params)
-            return {"status": "success", "response": response}
+            return response
         else:
             raise HTTPException(status_code=404, detail="main_handler function not found in handler.py")
     except Exception as e:
