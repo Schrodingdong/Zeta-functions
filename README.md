@@ -1,14 +1,13 @@
-# Local Serverless
-This project will try to mimic serverless comupting localy on your device.
+# Zeta - The local open-source serverless project
+This project will try to mimic serverless computing localy on your device.
 
 ## Why would you need it ?
 idk its cool tho.
 
 ## Supported Languages
-Nothing for now :/
+- Python
 
 ## Future Languages
-- Python
 - Java
 
 ## Requirements

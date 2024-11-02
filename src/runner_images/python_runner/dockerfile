@@ -1,0 +1,9 @@
+FROM python:3.9-slim
+
+WORKDIR /zeta
+COPY requirements.txt /zeta/requirements.txt
+RUN pip install -r requirements.txt
+COPY . /zeta/
+RUN mkdir handler
+
+CMD ["fastapi", "run", "/zeta/main.py"]

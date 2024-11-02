@@ -90,14 +90,6 @@ def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
     return return_message
 
 
-@app.post("/upload-textfile/")
-async def upload_textfile(file: UploadFile = File(...)): 
-    content = await file.read()
-    text = content.decode("utf-8")
-    # Process the text content here as needed
-    
-    return {"filename": file.filename, "content": text}
-
 async def process_file(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8")
@@ -112,7 +104,6 @@ async def instanciate_container(container_name: str, file: UploadFile = File(...
             raise Exception("Error reading the file")
 
         func = file_data["content"]
-        print("file data: " + func)
 
         # Instanciate container
         container_id = docker_service.instanciate_container(
@@ -151,3 +142,26 @@ def prune_containers():
         "message": "Removed " +  str(len(removed_containers)) + " containers",
         "containerList": removed_containers
     }
+
+# Serverlessy
+@app.delete("/serverless/run/{container_id}")
+def prune_containers(container_id: str):
+    try:
+        output = docker_service.run_function(container_id)
+        return {
+            "status": "Success",
+            "message": "Sucessfully ran the function",
+            "output": output,
+            "meta": {
+                "None": None
+            }
+        }
+    except:
+        return {
+            "status": "Error",
+            "message": "Error running the function",
+            "output": None,
+            "meta": {
+                "None": None
+            }
+        }
