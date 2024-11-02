@@ -1,8 +1,6 @@
-from fastapi import FastAPI, File, UploadFile, Depends
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from pydantic import BaseModel
 from enum import Enum
-from typing import Optional
 import requests
 import json
 
@@ -29,14 +27,18 @@ def get_container(id: str):
         return {
             "status": "Success",
             "message": "Successfully retrieved the container",
-            "containerId": container.id
+            "containerData": {
+                "name": container.name,
+                "status": container.status,
+                "short_id": container.short_id,
+                "id": container.id,
+                "image": container.image.id,
+                "ports": container.ports,
+                "health": container.health
+            }
         }
     except:
-        return {
-            "status": "Error",
-            "message": "Error retrieving the container",
-            "containerId": id
-        }
+        raise HTTPException(status_code=500, detail="Error retrieving the container: " + id)
 
 @app.post("/container/manage/{container_id}")
 def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
@@ -49,46 +51,39 @@ def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
             return_message["status"] = "Success"
             return_message["message"] = "Sucessfully ran the container"
         except:
-            return_message["status"] = "Error"
-            return_message["message"] = "Error ran the container"
+           raise HTTPException(status_code=500, detail="Error running the container: " + container_id)
     elif state == ContainerLifecycleMethods.STOP.name :
         try:
             docker_service.stop_container(container_id)
             return_message["status"] = "Success"
             return_message["message"] = "Sucessfully stopped the container"
         except:
-            return_message["status"] = "Error"
-            return_message["message"] = "Error stopping the container"
+            raise HTTPException(status_code=500, detail="Error stopping the container: " + container_id)
     elif state == ContainerLifecycleMethods.RESTART.name :
         try:
             docker_service.restart_container(container_id)
             return_message["status"] = "Success"
             return_message["message"] = "Sucessfully restarted the container"
         except:
-            return_message["status"] = "Error"
-            return_message["message"] = "Error restarting the container"
+            raise HTTPException(status_code=500, detail="Error restarting the container: " + container_id)
     elif state == ContainerLifecycleMethods.REMOVE.name :
         try:
             docker_service.remove_container(container_id)
             return_message["status"] = "Success"
             return_message["message"] = "Sucessfully removed the container"
         except:
-            return_message["status"] = "Error"
-            return_message["message"] = "Error removing the container"
+            raise HTTPException(status_code=500, detail="Error removing the container: " + container_id)
     if len(return_message) == 0:
-        return_message["status"] = "Error"
-        return_message["message"] = "Unrecognized lifecycle command: " + state
-        return_message["containerData"] = None
-    else:
-        return_message["containerData"] = {
-            "name": container.name,
-            "status": container.status,
-            "short_id": container.short_id,
-            "id": container.id,
-            "image": container.image.id,
-            "ports": container.ports,
-            "health": container.health
-        }
+        raise HTTPException(status_code=422, detail="Unrecognized lifecycle command: " + state)
+    return_message["containerData"] = {
+        "name": container.name,
+        "status": container.status,
+        "short_id": container.short_id,
+        "id": container.id,
+        "image": container.image.id,
+        "ports": container.ports,
+        "health": container.health
+    }
     return return_message
 
 
@@ -128,22 +123,20 @@ async def instanciate_container(container_name: str, file: UploadFile = File(...
             }
         }
     except Exception as err:
-        print(err)
-        return {
-            "status": "ERROR",
-            "message": "Error starting the container: ",
-            "containerData": None
-        }
+        raise HTTPException(status_code=500, detail="Error starting the container: " + container_id)
 
 
 @app.delete("/container/prune")
 def prune_containers():
-    removed_containers = docker_service.prune_containers()
-    return {
-        "status": "REMOVED",
-        "message": "Removed " +  str(len(removed_containers)) + " containers",
-        "containerList": removed_containers
-    }
+    try:
+        removed_containers = docker_service.prune_containers()
+        return {
+            "status": "REMOVED",
+            "message": "Removed " +  str(len(removed_containers)) + " containers",
+            "containerList": removed_containers
+        }
+    except:
+        raise HTTPException(status_code=500, detail="Error prunning the containers.")
 
 # Zeta function ===================================
 @app.post("/serverless/run/{container_name_or_id}")
@@ -155,7 +148,7 @@ def run_function(container_name_or_id: str, params: dict = {}):
         container = docker_service.get_container(container_name_or_id)
         ports = container.ports["8000/tcp"][0]
     except Exception as e:
-        print("Unable to find container:", str(e))
+        raise HTTPException(status_code=500, detail="Unable to find container:" + container_name_or_id)
     host_ip = ports["HostIp"]
     host_port = ports["HostPort"]
     url = "http://" + host_ip + ":" + host_port + "/run"
@@ -164,4 +157,4 @@ def run_function(container_name_or_id: str, params: dict = {}):
         content = response.content.decode()
         return {"status": "Success", "response": json.loads(content)}
     except Exception as e:
-        return {"status": "Error", "response": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
