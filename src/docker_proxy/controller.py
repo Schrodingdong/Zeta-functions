@@ -137,16 +137,11 @@ def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
     }
     return return_message
 
-async def process_file(file: UploadFile = File(...)):
-    content = await file.read()
-    text = content.decode("utf-8")
-    return {"filename": file.filename, "content": text}
-
 @app.post("/container")
 async def instanciate_container(container_name: str, file: UploadFile = File(...)):
     try:
         # Read the file from the request
-        file_data = await process_file(file)
+        file_data = await docker_service.process_file(file)
         if file_data == None:
             raise Exception("Error reading the file")
 
@@ -176,7 +171,6 @@ async def instanciate_container(container_name: str, file: UploadFile = File(...
         print(str(err))
         raise HTTPException(status_code=500, detail="Error starting the container: " + container_name)
 
-
 @app.delete("/container/prune")
 def prune_containers():
     try:
@@ -190,23 +184,95 @@ def prune_containers():
         raise HTTPException(status_code=500, detail="Error prunning the containers.")
 
 # Zeta function ===================================
-@app.post("/serverless/run/{container_name_or_id}")
-def run_function(container_name_or_id: str, params: dict = {}):
+@app.post("/zeta/create/{zeta_name}")
+async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
+    # Read the file and extract the handler content
+    try:
+        file_data = await docker_service.process_file(file)
+        if file_data == None:
+            raise Exception("Error reading the file")
+        func = file_data["content"]
+    except:
+        raise HTTPException(status_code=500, detail="Error reading file data.")
+    # Generate the docker file
+    try:
+        runner_image_name = docker_service.buildRunnerImage(func, zeta_name)
+        if runner_image_name:
+            return {
+                "status": "Success",
+                "message": "Successfully created the zeta function.",
+                "runnerImageName": runner_image_name
+            }
+        else:
+            raise Exception("Error buidling runner image.")
+    except:
+        raise HTTPException(status_code=500, detail="Error buidling runner image.")
+
+
+def is_zeta_up(zeta_name: str):
+    # Checks if the container is running
+    if not docker_service.is_container_running(zeta_name):
+        print("Zeta container is not running")
+        return False
+    # Checks if the app has successfully started
+    container = docker_service.get_container(zeta_name)
+    ports = container.ports["8000/tcp"][0]
+    host_ip = ports["HostIp"]
+    host_port = ports["HostPort"]
+    host_name = "http://" + host_ip + ":" + host_port
+    try:
+        response = requests.get(host_name+"/is-running")
+        return response.status_code == 200
+    except:
+        return False
+
+    
+
+def retrieve_runner_image(zeta_name: str):
+    """
+    Retrieve Image runner from the zeta function name
+    """
+    image_list = docker_service.retrieve_images()
+    for image in image_list:
+        image_tags = image.tags
+        for tag in image_tags:
+            if zeta_name in tag:
+                return image
+    return None
+
+@app.post("/zeta/run/{zeta_name}")
+def run_function(zeta_name: str, params: dict = {}):
     """
     Proxy to run the function inside the container
     """
-    try:
-        container = docker_service.get_container(container_name_or_id)
-        print(container.ports)
-        ports = container.ports["8000/tcp"][0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Unable to find container:" + container_name_or_id)
+    if(not is_zeta_up(zeta_name)):
+        # Cold start
+        runner_image = retrieve_runner_image(zeta_name)
+        if runner_image == None:
+            raise HTTPException(status_code=500, detail="Unable to run the zeta function '" + zeta_name + "'")
+        container = docker_service.instanciate_container_from_image(
+            container_name=zeta_name,
+            image_id=runner_image.id
+        )
+    # Hot Start
+    container = docker_service.get_container(zeta_name)
+    ports = container.ports["8000/tcp"][0]
     host_ip = ports["HostIp"]
     host_port = ports["HostPort"]
-    url = "http://" + host_ip + ":" + host_port + "/run"
+    host_name = "http://" + host_ip + ":" + host_port
+    # Wait until the container is up
+    TIMEOUT = 60
+    start_time = time.time()
+    while not is_zeta_up(zeta_name):
+        if time.time() - start_time > TIMEOUT:
+            raise HTTPException(status_code=500, detail="Zeta function is not up, exited due to timeout")
+        time.sleep(0.5)
+    # Proxy the request to the zeta
     try:
-        print(url)
-        response = requests.post(url, data=json.dumps(params))
+        response = requests.post(
+            url=host_name+"/run", 
+            data=json.dumps(params)
+        )
         content = response.content.decode()
         return {"status": "Success", "response": json.loads(content)}
     except Exception as e:

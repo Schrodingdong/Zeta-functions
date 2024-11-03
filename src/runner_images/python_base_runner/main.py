@@ -21,6 +21,13 @@ def send_heartbeat():
 
 app = FastAPI()
 
+@app.get("/is-running")
+def is_running():
+    return {
+        "status": "UP",
+        "timestamp": time.time()
+    }
+
 @app.post("/run")
 def run_handler(params: dict = {}):
     try:
