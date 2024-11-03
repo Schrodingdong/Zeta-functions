@@ -1,6 +1,23 @@
 from fastapi import FastAPI, HTTPException
+import requests
+import time
 import importlib.util
 import os 
+import json
+
+# Heartbeat Definition =============================================
+def send_heartbeat():
+    print("Sending heartbeat")
+    try:
+        container_id = os.environ['HOSTNAME']
+        container_meta = {
+            "containerId": container_id,
+            "timestamp": time.time()
+        }
+        response = requests.post("http://host.docker.internal:8000/heartbeat", data=json.dumps(container_meta))
+        print(f"Heartbeat sent: {response.status_code}")
+    except Exception as e:
+        print(f"Failed to send heartbeat: {e}")
 
 app = FastAPI()
 
@@ -19,6 +36,7 @@ def run_handler(params: dict = {}):
         # Call main_handler if it exists in handler.py
         if hasattr(handler_module, "main_handler"):
             response = handler_module.main_handler(params)
+            send_heartbeat()
             return response
         else:
             raise HTTPException(status_code=404, detail="main_handler function not found in handler.py")

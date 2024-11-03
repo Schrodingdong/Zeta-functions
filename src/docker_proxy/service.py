@@ -52,7 +52,7 @@ def instanciate_container(container_name: str, cmd: str, function: str) -> str:
         if container_name in list(map(lambda x: x.name, docker_client.containers.list(all=True))):
             remove_container(container_name)
         imageRunnerName = buildRunnerImage(function)
-        container = docker_client.containers.run(image=imageRunnerName, name=container_name, command=cmd, detach=True, ports={"8000":9999})
+        container = docker_client.containers.run(image=imageRunnerName, name=container_name, command=cmd, detach=True, ports={"8000":9090})
         return container.id
     except Exception as err :
         raise RuntimeError("Unable to create the container: ", err)

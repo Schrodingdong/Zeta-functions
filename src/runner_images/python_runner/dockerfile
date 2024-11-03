@@ -6,4 +6,4 @@ RUN pip install -r requirements.txt
 COPY . /zeta/
 RUN mkdir handler
 
-CMD ["fastapi", "run", "/zeta/main.py"]
+CMD ["fastapi", "dev", "--host", "0.0.0.0", "/zeta/main.py"]
