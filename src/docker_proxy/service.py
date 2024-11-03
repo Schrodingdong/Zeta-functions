@@ -1,13 +1,14 @@
-import docker
+from docker import DockerClient
 import os
 import tempfile
 import subprocess
 import uuid
 import requests
 
-DOCKER_HOST = 'unix://var/run/docker.sock'
+DOCKER_SOCK = 'unix://var/run/docker.sock'
+DOCKER_HOST = DOCKER_SOCK
 DOCKER_PORT = 2373
-docker_client = docker.from_env()
+docker_client = DockerClient(DOCKER_HOST)
 container_prefix = "POMS"
 
 def prefixContainerName(name):
@@ -45,6 +46,7 @@ def buildRunnerImage(function: str):
     # Return the image name
     return image_name
 
+# Container Management Service ===================================================
 def instanciate_container(container_name: str, cmd: str, function: str) -> str:
     try:
         if container_name in list(map(lambda x: x.name, docker_client.containers.list(all=True))):
@@ -103,13 +105,12 @@ def prune_containers() -> list:
             continue
     return removed
 
-# Serverlessy
+# Serverlessy ==================================================
 def run_function(container_id: str):
     # container = get_container(container_id)
     # send request to retrieve the lambda result
-    if '.sock' in 'unix://var/run/docker.sock':
+    if 'docker.sock' in DOCKER_HOST:
         lambda_output = requests.get("localhost:9999/run")
     else:
         lambda_output = requests.get(DOCKER_HOST + "9999/run")
-    # return it
     return lambda_output

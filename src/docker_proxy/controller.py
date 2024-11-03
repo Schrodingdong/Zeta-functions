@@ -1,4 +1,6 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from enum import Enum
 import requests
@@ -7,7 +9,7 @@ import json
 import service as docker_service
 
 
-# Type definition ===========================
+# Type definition ==============================
 class ContainerLifecycleMethods(Enum):
     STOP = 0
     RESTART = 1
@@ -16,10 +18,54 @@ class ContainerLifecycleMethods(Enum):
 class LifecycleMethod(BaseModel):
     state: str
 
+# Heartbeat check ===============================
+import threading
+import time
+from datetime import timedelta, datetime
 
+container_last_activity = {}
+lock = threading.Lock()
+IDLE_TIMEOUT = timedelta(minutes=10)
 
-# Endpoint definition ===========================
-app = FastAPI()
+def terminate_idle_containers():
+    while True:
+        with lock:
+            print(list(container_last_activity.items()))
+            for container_id, last_activity in list(container_last_activity.items()):
+                if datetime.now() - last_activity > IDLE_TIMEOUT:
+                    try:
+                        docker_service.stop_container(container_id)
+                        docker_service.remove_container(container_id)
+                        del container_last_activity[container_id]
+                        print(f"Terminated idle container {container_id}")
+                    except Exception as e:
+                        print(f"Error terminating container {container_id}: {e}")
+        time.sleep(15)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    heartbeat_thread = threading.Thread(target=terminate_idle_containers, daemon=True)
+    heartbeat_thread.start()
+    yield
+
+# Fastapi App definition ========================
+app = FastAPI(lifespan=lifespan)
+
+# Middleware definition =========================
+@app.middleware("http")
+async def update_container_activity(request: Request, call_next):
+    x_container_id = request.headers.get("X-Container-ID")
+    if x_container_id:
+        container = docker_service.get_container(x_container_id)
+        if container.name == x_container_id or container.id == x_container_id or container.short_id == x_container_id:
+            # Ensures we points to the long Id, whathever X-Container-ID is
+            with lock:
+                container_last_activity[container.id] = datetime.now()
+    response = await call_next(request)
+    return response
+
+# Container Management ===========================
 @app.get("/container/{id}")
 def get_container(id: str):
     try:
@@ -43,7 +89,10 @@ def get_container(id: str):
 @app.post("/container/manage/{container_id}")
 def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
     state = lifecycleMethod.state
-    container = docker_service.get_container(container_id)
+    try:
+        container = docker_service.get_container(container_id)
+    except:
+        raise HTTPException(status_code=500, detail="Error retrieving the container: " + container_id)
     return_message = {}
     if state == ContainerLifecycleMethods.RUN.name :
         try:
@@ -68,9 +117,16 @@ def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
             raise HTTPException(status_code=500, detail="Error restarting the container: " + container_id)
     elif state == ContainerLifecycleMethods.REMOVE.name :
         try:
+            with lock:
+                # Delete it from the container_last_activity list
+                try:
+                    del container_last_activity[container.id]
+                except:
+                    print("Unable to delete activity of " + container_id + ", id: "+ container.id)
             docker_service.remove_container(container_id)
             return_message["status"] = "Success"
             return_message["message"] = "Sucessfully removed the container"
+            
         except:
             raise HTTPException(status_code=500, detail="Error removing the container: " + container_id)
     if len(return_message) == 0:
@@ -85,7 +141,6 @@ def manage_container(container_id: str, lifecycleMethod: LifecycleMethod):
         "health": container.health
     }
     return return_message
-
 
 async def process_file(file: UploadFile = File(...)):
     content = await file.read()
@@ -109,6 +164,8 @@ async def instanciate_container(container_name: str, file: UploadFile = File(...
             function = func
         )
         container = docker_service.get_container(container_id)
+        with lock:
+            container_last_activity[container.id] = datetime.now()
         return {
             "status": "RUNNING",
             "message": "Sucessfully started the container of id " + container.short_id,
