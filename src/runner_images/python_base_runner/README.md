@@ -1,5 +1,5 @@
 # Python Runner
-This module defines how `python_runner` wrapper is going to be used
+This module defines how `python_base_runner` wrapper is going to be used
 
 ## Standards to follow
 - File to pass should be: `handler/handler.py`

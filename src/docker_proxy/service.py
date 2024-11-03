@@ -28,7 +28,7 @@ def buildRunnerImage(function: str):
 
         # Generate a Dockerfile
         dockerfile_content = """
-        FROM python-runner:latest
+        FROM python-base-runner:latest
         WORKDIR /zeta
         COPY function.py /zeta/handler/handler.py
         """
