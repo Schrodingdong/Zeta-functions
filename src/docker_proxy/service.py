@@ -12,7 +12,7 @@ DOCKER_PORT = 2373
 docker_client = DockerClient(DOCKER_HOST)
 container_prefix = "POMS"
 
-
+# TODO: refactor image and container services
 # Image Management Service =======================================================
 def buildRunnerImage(function: str, zeta_name:str = ""):
     """
@@ -49,6 +49,34 @@ def buildRunnerImage(function: str, zeta_name:str = ""):
 
 def retrieve_images():
     return docker_client.images.list()
+
+def retrieve_images_from_prefix(prefix: str):
+    image_list = docker_client.images.list()
+    found_images = []
+    for image in image_list:
+        for tag in image.tags:
+            if prefix in tag:
+                found_images.append(image)
+                break
+    return found_images
+
+def delete_images_from_prefix(prefix: str):
+    """
+    given a prefix, delete the images that contains it
+    """
+    image_list = docker_client.images.list()
+    for image in image_list:
+        for tag in image.tags:
+            if prefix in tag:
+                try:
+                    print("deleting image:", tag)
+                    docker_client.images.remove(image=image.id)
+                except:
+                    print("FORCE deleting image:", tag)
+                    docker_client.images.remove(image=image.id, force=True)
+
+                break
+
 
 
 # Container Management Service ===================================================
@@ -92,6 +120,14 @@ def get_container(name_or_id: str):
         return container
     except Exception as err :
         raise RuntimeError("Unable to retrieve the container: ", err)
+
+def get_containers_of_image(image_id: str):
+    container_list = []
+    print("container list : ", list(docker_client.containers.list(all=True)))
+    for container in list(docker_client.containers.list(all=True)):
+        if container.image.id == image_id:
+            container_list.append(container)
+    return container_list
 
 def restart_container(name_or_id: str):
     try:
