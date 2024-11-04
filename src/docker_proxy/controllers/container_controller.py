@@ -1,10 +1,7 @@
 from fastapi import APIRouter, HTTPException, File, UploadFile
-from datetime import timedelta, datetime
 from pydantic import BaseModel
 from enum import Enum
-import threading
-import time
-import service as docker_service
+from services import docker_service
 
 # Initialize Router ==============================
 router = APIRouter()
@@ -20,11 +17,16 @@ class LifecycleMethod(BaseModel):
 
 # Container Management ===========================
 # TODO : fix endpoints and stadnarized them
+async def process_file(file: UploadFile = File(...)):
+    content = await file.read()
+    text = content.decode("utf-8")
+    return {"filename": file.filename, "content": text}
+
 @router.post("/")
 async def instanciate_container(container_name: str, file: UploadFile = File(...)):
     try:
         # Read the file from the request
-        file_data = await docker_service.process_file(file)
+        file_data = await process_file(file)
         if file_data == None:
             raise Exception("Error reading the file")
 
