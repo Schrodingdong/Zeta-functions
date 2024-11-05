@@ -22,39 +22,37 @@ async def process_file(file: UploadFile = File(...)):
     text = content.decode("utf-8")
     return {"filename": file.filename, "content": text}
 
-@router.post("/")
-async def instanciate_container(container_name: str, file: UploadFile = File(...)):
-    try:
-        # Read the file from the request
-        file_data = await process_file(file)
-        if file_data == None:
-            raise Exception("Error reading the file")
-
-        func = file_data["content"]
-
-        # Instanciate container
-        container_id = docker_service.instanciate_container(
-            container_name= container_name,
-            cmd= "",
-            function = func
-        )
-        container = docker_service.get_container(container_id)
-        return {
-            "status": "RUNNING",
-            "message": "Sucessfully started the container of id " + container.short_id,
-            "containerData": {
-                "name": container.name,
-                "status": container.status,
-                "short_id": container.short_id,
-                "id": container.id,
-                "image": container.image.id,
-                "ports": container.ports,
-                "health": container.health
-            }
-        }
-    except Exception as err:
-        print(str(err))
-        raise HTTPException(status_code=500, detail="Error starting the container: " + container_name)
+# @router.post("/")
+# async def instanciate_container(container_name: str, file: UploadFile = File(...)):
+#     try:
+#         # Read the file from the request
+#         file_data = await process_file(file)
+#         if file_data == None:
+#             raise Exception("Error reading the file")
+#         func = file_data["content"]
+#         # Instanciate container
+#         container_id = docker_service.instanciate_container(
+#             container_name= container_name,
+#             cmd= "",
+#             function = func
+#         )
+#         container = docker_service.get_container(container_id)
+#         return {
+#             "status": "RUNNING",
+#             "message": "Sucessfully started the container of id " + container.short_id,
+#             "containerData": {
+#                 "name": container.name,
+#                 "status": container.status,
+#                 "short_id": container.short_id,
+#                 "id": container.id,
+#                 "image": container.image.id,
+#                 "ports": container.ports,
+#                 "health": container.health
+#             }
+#         }
+#     except Exception as err:
+#         print(str(err))
+#         raise HTTPException(status_code=500, detail="Error starting the container: " + container_name)
 
 @router.get("/{container_id}")
 async def get_container(container_id: str):
