@@ -100,11 +100,11 @@ def build_zeta_runner_image(function: str, zeta_name:str = ""):
         with open(function_file_path, "w") as f:
             f.write(function)
         # Generate a Dockerfile
-        dockerfile_content = """
-        FROM {base_image}
+        dockerfile_content = f"""
+        FROM {BASE_RUNNER}
         WORKDIR /zeta
         COPY function.py /zeta/handler/handler.py
-        """.format(base_image=BASE_RUNNER)
+        """
         with open(dockerfile_path, "w") as f:
             f.write(dockerfile_content)
         # Build the Docker image

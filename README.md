@@ -34,6 +34,8 @@ docker build -t python-base-runner:latest ./src/runner_images/python_base_runner
         # Logic ...
         return { ... }
     ```
+> Technical Note: Using the same python file for multiple function deployment will result in multiple runner images generated, with the same imageID. 
+> That is because they are using the same layers. This shouldn't impact the app execution, but the more you know ;)
 - Run the function `localhost:8000/zeta/run/<zeta_name>` 
     - payload should be the same as used for the handler
 
