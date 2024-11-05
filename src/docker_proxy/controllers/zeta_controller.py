@@ -62,6 +62,7 @@ async def get_zeta_metadata(zeta_name: str):
 @router.post("/create/{zeta_name}")
 async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     try:
+        print(f"[ZETA CONTROLLER] - Create the zeta function {zeta_name} ...")
         zeta_metadata = await zeta_service.create_zeta(zeta_name, file)
         return {
             "status": "success",
@@ -78,12 +79,14 @@ async def run_function(zeta_name: str, params: dict = {}):
     """
     # Proxy the request to the zeta
     if(not zeta_service.is_zeta_up(zeta_name)):
+        print(f"[ZETA CONTROLLER] - Cold starting the function {zeta_name}")
         container_hostname = zeta_service.cold_start_zeta(zeta_name)
     else:
+        print(f"[ZETA CONTROLLER] - Warm starting the function {zeta_name}")
         container_hostname = zeta_service.warm_start_zeta(zeta_name)
     # Proxy the request to the zeta
     try:
-        print("proxy the request", container_hostname+"/run")
+        print(f"[ZETA CONTROLLER] - proxy the request to {container_hostname}/run")
         response = requests.post(
             url=container_hostname+"/run", 
             data=json.dumps(params)
