@@ -41,13 +41,32 @@ async def heartbeat_check(meta: HeartbeatMeta):
             with lock:
                 container_last_activity[container.id] = datetime.now()
 
+@router.get("/meta/")
+async def get_all_zeta_metadata():
+    meta = zeta_service.get_all_zeta_metadata()
+    meta_list = []
+    for el in meta :
+        meta_element = meta[el]
+        meta_element["zeta_name"] = el
+        meta_list.append(meta_element)
+    return meta_list
+
+@router.get("/meta/{zeta_name}")
+async def get_zeta_metadata(zeta_name: str):
+    meta = zeta_service.get_zeta_metadata(zeta_name)
+    if len(meta) == 0:
+        raise HTTPException(status_code=500, detail=f"Unable to find the zeta function {zeta_name}")
+    return meta
+
+
 @router.post("/create/{zeta_name}")
 async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     try:
-        await zeta_service.create_zeta(zeta_name, file)
+        zeta_metadata = await zeta_service.create_zeta(zeta_name, file)
         return {
             "status": "success",
-            "message": "successfully created the zeta function '" + zeta_name + "'"
+            "message": f"successfully created the zeta function '{zeta_name}'",
+            "zetaMetadata": zeta_metadata
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Unable to create the zeta function '" + zeta_name + "': " + str(e))
