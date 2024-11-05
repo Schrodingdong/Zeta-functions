@@ -1,3 +1,6 @@
+"""
+docker service to wrap the DockerClient instance. To be used to execute container engine specific commands.
+"""
 from docker import DockerClient
 
 DOCKER_SOCK = 'unix://var/run/docker.sock'
@@ -7,10 +10,46 @@ docker_client = DockerClient(DOCKER_HOST)
 container_prefix = "POMS"
 
 # Image Management Service =======================================================
-def retrieve_images():
+def list_images():
+    """
+    List all docker images images
+    """
     return docker_client.images.list()
 
-def retrieve_images_from_prefix(prefix: str):
+def get_image_from_tag(image_tag: str):
+    """
+    Retrieve the image tagged `image_tag`
+
+    Attributes
+    ---
+    - image_tag: str
+    """
+    return list(filter(
+        lambda image: image_tag in image.tags,
+        list_images()
+    ))[0]
+
+def get_image_from_id(image_id: str):
+    """
+    Retrieve the image with id `image_id`
+
+    Attributes
+    ---
+    - image_id: str
+    """
+    return list(filter(
+        lambda image: (image.id == image_id) or (image.short_id in image_id),
+        list_images()
+    ))[0]
+
+def get_images_from_prefix(prefix: str):
+    """
+    Return a list of images given a string prefix. The matching is done to the `image.tags` elements.
+
+    Attributes
+    ---
+    - prefix: str
+    """
     image_list = docker_client.images.list()
     found_images = []
     for image in image_list:
@@ -20,7 +59,17 @@ def retrieve_images_from_prefix(prefix: str):
                 break
     return found_images
 
-def build_image(image_name: str, dockerfile_path:str):
+def build_image(image_name: str, dockerfile_path: str):
+    """
+    Build an image of `image_name`, using the dockerfile specified at `dockerfile_path`
+
+    Attributes
+    ---
+    - image_name: str
+        The image name to be used
+    - dockerfile_path: str
+        Dockerfile to use for the build
+    """
     try:
         docker_client.images.build(tag=image_name, path=dockerfile_path)
     except:
@@ -28,7 +77,12 @@ def build_image(image_name: str, dockerfile_path:str):
 
 def delete_images_from_prefix(prefix: str):
     """
-    given a prefix, delete the images that contains it
+    Delete the images prefixed with `prefix`
+
+    Attributes
+    ---
+    - prefix: str
+        Prefix to check the image tag on.
     """
     image_list = docker_client.images.list()
     for image in image_list:
@@ -43,7 +97,18 @@ def delete_images_from_prefix(prefix: str):
                 break
 
 # Container Management Service ===================================================
-def instanciate_container_from_image(container_name: str, image_id: str):
+def instanciate_container_from_image(container_name: str, image_id: str, ports: dict):
+    """
+    Instanciate a container for the image with id `image_id`, exposed on ports described in `ports`. 
+
+    Attributes
+    ---
+    - container_name: str
+    - image_name: str
+    - ports: dict
+        Port specification to publish the container following this format: `{"<container_port>" : <host_port>}`.
+        for example: `ports = {"8000": 9090}`
+    """
     # Check image exists
     found = False
     for image in docker_client.images.list():
@@ -58,34 +123,44 @@ def instanciate_container_from_image(container_name: str, image_id: str):
         image=image_id, 
         name=container_name,
         detach=True, 
-        ports={"8000":9090}
+        ports=ports
     )
     return container
 
-
-def instanciate_container(container_name: str, cmd: str, function: str) -> str:
-    try:
-        if container_name in list(map(lambda x: x.name, docker_client.containers.list(all=True))):
-            remove_container(container_name)
-        # imageRunnerName = buildRunnerImage(function)
-        imageRunnerName = "unknown"
-        container = docker_client.containers.run(image=imageRunnerName, name=container_name, command=cmd, detach=True, ports={"8000":9090})
-        return container.id
-    except Exception as err :
-        raise RuntimeError("Unable to create the container: ", err)
-
 def is_container_running(container_name: str):
+    """
+    Checks if the container is in a `RUNNING` state
+
+    Attributes 
+    ---
+    - container_name: str
+    """
     container_list_name = list(map(lambda x: x.name, docker_client.containers.list()))
     return container_name in container_list_name
 
-def get_container(name_or_id: str):
+def get_container(container_name_or_id: str):
+    """
+    Retrieve the specified container 
+
+    Attributes
+    ---
+    - container_name_or_id: str
+        Can be either the container name or id
+    """
     try:
-        container = docker_client.containers.get(name_or_id)
+        container = docker_client.containers.get(container_name_or_id)
         return container
     except Exception as err :
         raise RuntimeError("Unable to retrieve the container: ", err)
 
 def get_containers_of_image(image_id: str):
+    """
+    Get containers instanciated from an image of id `image_id`
+
+    Attributes 
+    ---
+    - image_id: str
+    """
     container_list = []
     print("container list : ", list(docker_client.containers.list(all=True)))
     for container in list(docker_client.containers.list(all=True)):
@@ -93,46 +168,79 @@ def get_containers_of_image(image_id: str):
             container_list.append(container)
     return container_list
 
-def restart_container(name_or_id: str):
-    try:
-        docker_client.containers.get(name_or_id).restart()
-    except Exception as err :
-        raise RuntimeError("Unable to restart the container of id "+ name_or_id + " : ", err)
+def restart_container(container_name_or_id: str):
+    """
+    Restart the specified container
 
-def stop_container(name_or_id: str):
+    Attributes
+    ---
+    - container_name_or_id: str
+        Can be either the container name or id
+    """
     try:
-        docker_client.containers.get(name_or_id).stop()
+        docker_client.containers.get(container_name_or_id).restart()
     except Exception as err :
-        raise RuntimeError("Unable to stop the container of id", name_or_id, ":", err)
+        raise RuntimeError("Unable to restart the container of id "+ container_name_or_id + " : ", err)
 
-def run_container(name_or_id: str):
+def stop_container(container_name_or_id: str):
+    """
+    Stop the specified container
+
+    Attributes
+    ---
+    - container_name_or_id: str
+        Can be either the container name or id
+    """
     try:
-        docker_client.containers.run(name_or_id)
+        docker_client.containers.get(container_name_or_id).stop()
     except Exception as err :
-        raise RuntimeError("Unable to run the container of id", name_or_id, ":", err)
+        raise RuntimeError("Unable to stop the container of id", container_name_or_id, ":", err)
 
-def remove_container(name_or_id: str):
+def run_container(container_name_or_id: str):
+    """
+    Run/Start the specified container
+
+    Attributes
+    ---
+    - container_name_or_id: str
+        Can be either the container name or id
+    """
+    try:
+        docker_client.containers.run(container_name_or_id)
+    except Exception as err :
+        raise RuntimeError("Unable to run the container of id", container_name_or_id, ":", err)
+
+def remove_container(container_name_or_id: str):
+    """
+    Remove the specified container
+
+    Attributes
+    ---
+    - container_name_or_id: str
+        Can be either the container name or id
+    """
     try:
         try:
-            print("Removing container:", name_or_id)
-            docker_client.containers.get(name_or_id).remove()
+            print("Removing container:", container_name_or_id)
+            docker_client.containers.get(container_name_or_id).remove()
         except:
-            print("Forcefully Removing container:", name_or_id)
-            docker_client.containers.get(name_or_id).remove(force=True)
+            print("Forcefully Removing container:", container_name_or_id)
+            docker_client.containers.get(container_name_or_id).remove(force=True)
     except Exception as err :
-        raise RuntimeError("Unable to remove the container of id", name_or_id, ":", err)
+        raise RuntimeError("Unable to remove the container of id", container_name_or_id, ":", err)
 
 def prune_containers() -> list:
+    """
+    Remove all containers, whathever the state they are in.
+    """
+    # TODO : Make sure that the once we add networking, we will be able to prune container spun up by a specific container
     removed = []
     for name in list(map(lambda x: x.name, docker_client.containers.list(all=True))):
         try:
+            stop_container(name)
             remove_container(name)
             removed.append(name)
         except:
             print("Can't remove container: ", name)
             continue
     return removed
-
-# Utils =======================================================
-def prefixContainerName(name):
-    return container_prefix + "_" + name
