@@ -19,7 +19,6 @@ IDLE_TIMEOUT = timedelta(seconds=30)
 def terminate_idle_containers():
     while True:
         with lock:
-            print(list(container_last_activity.items()))
             for container_id, last_activity in list(container_last_activity.items()):
                 if datetime.now() - last_activity > IDLE_TIMEOUT:
                     try:
@@ -35,11 +34,13 @@ def terminate_idle_containers():
 @router.post("/heartbeat")
 async def heartbeat_check(meta: HeartbeatMeta):
     container_id = meta.containerId
+    print(f"[ZETA CONTROLLER] - Received hearbeat from container: {container_id}")
     if container_id:
         container = docker_service.get_container(container_id)
         if container.name == container_id or container.id == container_id or container.short_id == container_id:
             with lock:
                 container_last_activity[container.id] = datetime.now()
+    print(f"[ZETA CONTROLLER] - Container activity list: \n=>{list(container_last_activity.items())}")
 
 @router.get("/meta/")
 async def get_all_zeta_metadata():
