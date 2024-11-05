@@ -1,5 +1,6 @@
 from fastapi import File, UploadFile
 import services.docker_service as docker_service 
+import services.dns_service as dns_service
 import subprocess
 import tempfile
 import requests
@@ -134,11 +135,17 @@ def cold_start_zeta(zeta_name:str):
     if runner_image == None:
         raise RuntimeError("Unable to run the zeta function '" + zeta_name + "'")
     try:
+        # Get dynamic port and set it for the zeta in the DNS
+        host_port = dns_service.retrieve_dynamic_port()
+        dns_service.set_zeta_port(zeta_name, host_port)
+        # Instanciate the container
         container = docker_service.instanciate_container_from_image(
             container_name=zeta_name,
             image_id=runner_image.id,
-            ports={"8000":9090}
+            ports={"8000":host_port} # 8000 is the open container port
         )
+        # Update container metadata
+        update_zeta_container_metadata(zeta_name)
     except:
         raise RuntimeError("Unable to run the zeta function '" + zeta_name + "'")
     container_hostname = retrieve_container_hostname(container)
@@ -239,6 +246,19 @@ def get_zeta_metadata(zeta_name: str):
         zeta_name: zeta_meta[zeta_name]
     }
 
+def update_zeta_container_metadata(zeta_name: str):
+    try:
+        container = docker_service.get_container(zeta_name)
+    except:
+        raise RuntimeError(f"Can't find zeta container runner: {zeta_name}")
+    zeta_meta[zeta_name]["runnerContainer"].append(
+        {
+            "containerName": container.name,
+            "containerId": container.id,
+            "containerPorts": container.ports
+        }
+    )
+
 def create_zeta_metadata(zeta_name: str):
     runner_image_list = docker_service.get_images_from_prefix(zeta_name)
     if len(runner_image_list) > 1:
@@ -251,6 +271,7 @@ def create_zeta_metadata(zeta_name: str):
             "imageId": runner_image.id,
             "tags": runner_image.tags
         },
+        "runnerContainer": [],
         "createdAt": time.time(),
     }
     zeta_meta[zeta_name] = meta
