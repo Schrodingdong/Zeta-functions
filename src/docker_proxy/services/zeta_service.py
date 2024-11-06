@@ -56,6 +56,7 @@ def clean_old_zeta(zeta_name: str):
         for image in old_images:
             old_containers = docker_service.get_containers_of_image(image.id)
             for container in old_containers:
+                docker_service.stop_container(container.id)
                 docker_service.remove_container(container.id)
     except:
         print("No container found for", zeta_name)
@@ -193,6 +194,39 @@ def retrieve_container_hostname(container):
     host_port = ports["HostPort"]
     host_name = "http://" + host_ip + ":" + host_port
     return host_name
+
+# Delete the function(s)
+def delete_zeta(zeta_name: str):
+    """
+    Delete the specified zeta.
+
+    Attributes 
+    ---
+    - zeta_name: str
+    """
+    # Check it is in the meta registery
+    if zeta_name not in zeta_meta:
+        raise RuntimeError("Zeta function not found in metadata")
+    # Down the container
+    docker_service.stop_container(zeta_name)
+    docker_service.remove_container(zeta_name)
+    # Delete its metadata
+    delete_zeta_metadata(zeta_name)
+
+def prune_zeta():
+    """
+    Deletes all running zeta functions.
+    """
+    zeta_name_list = []
+    for zeta_name in zeta_meta:
+        zeta_name_list.append(zeta_name)
+    counter = 0
+    for zeta_name in zeta_name_list:
+        print(f"[ZETA SERVICE] - Deleting zeta: {zeta_name}")
+        delete_zeta(zeta_name)
+        counter += 1
+    print(f"[ZETA SERVICE] - Deleted {counter} zetas")
+
 
 # utils
 def is_zeta_up(zeta_name: str):

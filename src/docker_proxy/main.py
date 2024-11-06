@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from controllers import container_controller
 from controllers import zeta_controller 
+from services import  zeta_service
 import threading
 import socket
 import os
@@ -51,7 +52,8 @@ async def lifespan(app: FastAPI):
     container_termination_thread = threading.Thread(target=zeta_controller.terminate_idle_containers, daemon=True)
     container_termination_thread.start()
     yield
-    # TODO : cleanup of images and zeta functions
+    # Cleanup running zetas
+    zeta_service.prune_zeta()
 
 # Define fastapi app
 app = FastAPI(lifespan=lifespan)
