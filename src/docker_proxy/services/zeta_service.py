@@ -208,8 +208,18 @@ def delete_zeta(zeta_name: str):
     if zeta_name not in zeta_meta:
         raise RuntimeError("Zeta function not found in metadata")
     # Down the container
-    docker_service.stop_container(zeta_name)
-    docker_service.remove_container(zeta_name)
+    try: 
+        docker_service.stop_container(zeta_name)
+        docker_service.remove_container(zeta_name)
+        print(f"[ZETA SERVICE] -  Successfully removed zeta runner container: {zeta_name}")
+    except Exception as e:
+        print(f"[ZETA SERVICE] -  Unable to stop the container: {e}")
+    # Delete its images
+    try:
+        removed_images = docker_service.delete_images_from_prefix(zeta_name)
+        print(f"[ZETA SERVICE] -  Successfully removed zeta runner images: {removed_images}")
+    except:
+        print(f"[ZETA SERVICE] -  Unable to stop the container: {e}")
     # Delete its metadata
     delete_zeta_metadata(zeta_name)
 
@@ -276,9 +286,7 @@ def get_all_zeta_metadata():
 def get_zeta_metadata(zeta_name: str):
     if zeta_name not in zeta_meta:
         return {}
-    return {
-        zeta_name: zeta_meta[zeta_name]
-    }
+    return zeta_meta[zeta_name]
 
 def update_zeta_container_metadata(zeta_name: str):
     try:
@@ -301,6 +309,7 @@ def create_zeta_metadata(zeta_name: str):
         raise RuntimeError(f"No runners found for zeta: {zeta_name}")
     runner_image = runner_image_list[0]
     meta = {
+        "zetaName": zeta_name,
         "runnerImage": {
             "imageId": runner_image.id,
             "tags": runner_image.tags
@@ -310,6 +319,11 @@ def create_zeta_metadata(zeta_name: str):
     }
     zeta_meta[zeta_name] = meta
     return meta
+
+def delete_zeta_container_metadata(zeta_name: str):
+    if zeta_name not in zeta_meta:
+        return
+    zeta_meta[zeta_name]["runnerContainer"] = []
 
 def delete_zeta_metadata(zeta_name: str):
     if zeta_name not in zeta_meta:

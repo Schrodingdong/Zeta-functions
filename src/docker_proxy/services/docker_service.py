@@ -85,8 +85,13 @@ def delete_images_from_prefix(prefix: str):
     ---
     - prefix: str
         Prefix to check the image tag on.
+    
+    Return Value
+    ---
+    - removed_containers: List
     """
     image_list = docker_client.images.list()
+    removed_images = []
     for image in image_list:
         for tag in image.tags:
             if prefix in tag:
@@ -96,7 +101,10 @@ def delete_images_from_prefix(prefix: str):
                 except:
                     print("FORCE deleting image:", tag)
                     docker_client.images.remove(image=image.id, force=True)
+                finally:
+                    removed_images.append(image.id)
                 break
+    return removed_images
 
 # Container Management Service ===================================================
 def instanciate_container_from_image(container_name: str, image_id: str, ports: dict):

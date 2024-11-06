@@ -15,17 +15,20 @@ IDLE_TIMEOUT = timedelta(seconds=30)
 def terminate_idle_containers():
     while True:
         with lock:
-            for container_id, last_activity in list(container_last_activity.items()):
+            for container_name, last_activity in list(container_last_activity.items()):
                 if isinstance(last_activity, float):
                     last_activity = datetime.fromtimestamp(last_activity)
                 if datetime.now() - last_activity > IDLE_TIMEOUT:
                     try:
-                        docker_service.stop_container(container_id)
-                        docker_service.remove_container(container_id)
-                        del container_last_activity[container_id]
-                        print(f"Terminated idle container {container_id}")
+                        # Removing zeta function runner containers
+                        docker_service.stop_container(container_name)
+                        docker_service.remove_container(container_name)
+                        del container_last_activity[container_name]
+                        # Removing container meta for zeta
+                        zeta_service.delete_zeta_container_metadata(container_name)
+                        print(f"Terminated idle container {container_name}")
                     except Exception as e:
-                        print(f"Error terminating container {container_id}: {e}")
+                        print(f"Error terminating container {container_name}: {e}")
         time.sleep(15)
 
 # Endpoints ============================================================
@@ -37,7 +40,7 @@ def heartbeat_check(meta: dict):
         container = docker_service.get_container(container_id)
         if container.name == container_id or container.id == container_id or container.short_id == container_id:
             with lock:
-                container_last_activity[container.id] = float(timestamp)
+                container_last_activity[container.name] = float(timestamp)
     print(f"[ZETA CONTROLLER] - Container activity list: \n=>{list(container_last_activity.items())}")
 
 @router.get("/meta/")
@@ -45,9 +48,7 @@ async def get_all_zeta_metadata():
     meta = zeta_service.get_all_zeta_metadata()
     meta_list = []
     for el in meta :
-        meta_element = meta[el]
-        meta_element["zeta_name"] = el
-        meta_list.append(meta_element)
+        meta_list.append(meta[el])
     return meta_list
 
 @router.get("/meta/{zeta_name}")
