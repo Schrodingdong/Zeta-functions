@@ -1,28 +1,30 @@
 from fastapi import FastAPI, HTTPException
-import requests
+import socket
 import time
 import importlib.util
 import os 
 import json
 
 # Heartbeat Definition =============================================
+SOCKET_DIR = os.path.join(os.getcwd(), "tmp")
+SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")
 def send_heartbeat():
     print("Sending heartbeat")
     try:
         container_id = os.environ['HOSTNAME']
         container_meta = {"containerId": container_id, "timestamp": time.time()}
-        host = "http://host.docker.internal" # issue with docker on linux
-        port = "8000"
-        path = "/zeta/heartbeat"
-        url = host+":"+port+path
-        print("sending heartbeat to", url)
-        response = requests.post(
-            url=url, 
-            data=json.dumps(container_meta)
-        )
-        print(f"Heartbeat sent: {response.status_code}")
+        # Connect to the Unix socket
+        client_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client_socket.connect(SOCKET_PATH)
+        # Send heartbeat
+        try:
+            meta_bytes = json.dumps(container_meta).encode("utf-8")
+            client_socket.sendall(meta_bytes)
+            print(f"[HEARTBEAT] - Heartbeat sent")
+        finally:
+            client_socket.close()
     except Exception as e:
-        print(f"Failed to send heartbeat: {e}")
+        print(f"[HEARTBEAT] - Failed to send heartbeat: {e}")
 
 app = FastAPI()
 
@@ -48,8 +50,7 @@ def run_handler(params: dict = {}):
         # Call main_handler if it exists in handler.py
         if hasattr(handler_module, "main_handler"):
             response = handler_module.main_handler(params)
-            # TODO fix heartbeat
-            # send_heartbeat()
+            send_heartbeat()
             return response
         else:
             raise HTTPException(status_code=404, detail="main_handler function not found in handler.py")

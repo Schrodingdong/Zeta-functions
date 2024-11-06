@@ -2,12 +2,14 @@
 docker service to wrap the DockerClient instance. To be used to execute container engine specific commands.
 """
 from docker import DockerClient
+import os
 
 DOCKER_SOCK = 'unix://var/run/docker.sock'
 DOCKER_HOST = DOCKER_SOCK
 DOCKER_PORT = 2373
 docker_client = DockerClient(DOCKER_HOST)
-container_prefix = "POMS"
+SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
+SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")     # synced with the runner's main.py
 
 # Image Management Service =======================================================
 def list_images():
@@ -123,7 +125,13 @@ def instanciate_container_from_image(container_name: str, image_id: str, ports: 
         image=image_id, 
         name=container_name,
         detach=True, 
-        ports=ports
+        ports=ports,
+        volumes={
+            SOCKET_PATH: {
+                'bind': "/zeta/tmp/docker_proxy.sock", 
+                'mode': 'ro'
+            }
+        }
     )
     return container
 

@@ -8,10 +8,6 @@ import requests, time, json, threading
 # Initialize Router ====================================================
 router = APIRouter()
 # Heartbeat check  ===============================================
-class HeartbeatMeta(BaseModel):
-    containerId: str
-    timestamp: float 
-
 container_last_activity = {}
 lock = threading.Lock()
 IDLE_TIMEOUT = timedelta(seconds=30)
@@ -20,6 +16,8 @@ def terminate_idle_containers():
     while True:
         with lock:
             for container_id, last_activity in list(container_last_activity.items()):
+                if isinstance(last_activity, float):
+                    last_activity = datetime.fromtimestamp(last_activity)
                 if datetime.now() - last_activity > IDLE_TIMEOUT:
                     try:
                         docker_service.stop_container(container_id)
@@ -31,15 +29,15 @@ def terminate_idle_containers():
         time.sleep(15)
 
 # Endpoints ============================================================
-@router.post("/heartbeat")
-async def heartbeat_check(meta: HeartbeatMeta):
-    container_id = meta.containerId
+def heartbeat_check(meta: dict):
+    container_id = meta["containerId"]
+    timestamp = meta["timestamp"]
     print(f"[ZETA CONTROLLER] - Received hearbeat from container: {container_id}")
     if container_id:
         container = docker_service.get_container(container_id)
         if container.name == container_id or container.id == container_id or container.short_id == container_id:
             with lock:
-                container_last_activity[container.id] = datetime.now()
+                container_last_activity[container.id] = float(timestamp)
     print(f"[ZETA CONTROLLER] - Container activity list: \n=>{list(container_last_activity.items())}")
 
 @router.get("/meta/")
@@ -78,7 +76,11 @@ async def run_function(zeta_name: str, params: dict = {}):
     """
     Start the function and proxy the request to it.
     """
-    # Proxy the request to the zeta
+    # Check if the function exists
+    zeta_meta = zeta_service.get_zeta_metadata(zeta_name)
+    if len(zeta_meta) == 0:
+        raise HTTPException(status_code=404, detail=f"Zeta function {zeta_name} not found.")
+    # Start the function
     if(not zeta_service.is_zeta_up(zeta_name)):
         print(f"[ZETA CONTROLLER] - Cold starting the function {zeta_name}")
         container_hostname = zeta_service.cold_start_zeta(zeta_name)
@@ -96,3 +98,5 @@ async def run_function(zeta_name: str, params: dict = {}):
         return {"status": "Success", "response": json.loads(content)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# TODO delete containers based on the registred zetas in the metadata
