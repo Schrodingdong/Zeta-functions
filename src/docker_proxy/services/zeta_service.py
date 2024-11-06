@@ -233,7 +233,7 @@ def retrieve_runner_image(zeta_name: str):
     return None
 
 # Zeta metadata
-# Zeta metadata should be tightly linked to the current deployment, and immutable. a change in the functions means a redeployment, therfore deleting and re creating the metadata
+# Zeta metadata should be tightly linked to the current deployment. a change in the functions means a redeployment, therfore deleting and re creating the metadata
 zeta_meta = {}
 
 def get_all_zeta_metadata():

@@ -10,7 +10,10 @@ import json
 # Start heartbeat check thread
 SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
 SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")  # synced with the runner's main.py
-def accept_socket_connection():
+def accept_heartbeat_connection():
+    """
+    Heartbeat implementation using sockets.
+    """
     # Clean up the socket file if it already exists
     if not os.path.isdir(SOCKET_DIR):
         os.mkdir(SOCKET_DIR)
@@ -42,7 +45,7 @@ def accept_socket_connection():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Start heartbeat thread
-    heartbeat_thread = threading.Thread(target=accept_socket_connection)
+    heartbeat_thread = threading.Thread(target=accept_heartbeat_connection)
     heartbeat_thread.start()
     # Start 
     container_termination_thread = threading.Thread(target=zeta_controller.terminate_idle_containers, daemon=True)
