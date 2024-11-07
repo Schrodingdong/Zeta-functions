@@ -25,7 +25,7 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     # Cleaning old zeta functions
     logger.info(f"Deleting old zeta function data")
     try:
-        clean_old_zeta(zeta_name)
+        clean_zeta(zeta_name)
     except Exception as e:
         errmsg = f"Error cleaning old zeta function: {str(e)}"
         logger.error(errmsg)
@@ -56,22 +56,22 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
         raise RuntimeError(errmsg)
     return meta
 
-def clean_old_zeta(zeta_name: str):
+def clean_zeta(zeta_name: str):
     """
-    Clean old zeta files, images, containers and metadata. The steps to do so are as follow :
-    - Shutdown any up containers with old related images
-    - Delete old related images
+    Clean zeta files, images, containers and metadata. The steps to do so are as follow :
+    - Shutdown any up containers with related images
+    - Delete related images
 
     Attributes 
     ---
     - zeta_image: str
     """
     # Shutdown any up containers with old related images
-    old_images = docker_service.get_images_from_prefix(zeta_name)
+    runner_images = docker_service.get_images_from_prefix(zeta_name)
     try:
-        for image in old_images:
-            old_containers = docker_service.get_containers_of_image(image.id)
-            for container in old_containers:
+        for image in runner_images:
+            runner_containers = docker_service.get_containers_of_image(image.id)
+            for container in runner_containers:
                 docker_service.stop_container(container.id)
                 docker_service.remove_container(container.id)
     except:

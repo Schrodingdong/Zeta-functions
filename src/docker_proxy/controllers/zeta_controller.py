@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile
+from fastapi import APIRouter, HTTPException, File, UploadFile, status
 from pydantic import BaseModel
 from datetime import timedelta, datetime
 import services.docker_service as docker_service
@@ -108,4 +108,11 @@ async def run_function(zeta_name: str, params: dict = {}):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# TODO delete containers based on the registred zetas in the metadata
+@router.delete("/{zeta_name}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_zeta(zeta_name: str):
+    logger.info(f"Deleting the zeta function: {zeta_name} ...")
+    try:
+        zeta_service.clean_zeta(zeta_name)
+    except Exception as e:
+        logger.error(f"Failed to delete the zeta function {zeta_name}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while deleting the zeta function.")
