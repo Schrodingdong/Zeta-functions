@@ -7,8 +7,10 @@ import requests
 import uuid
 import time
 import os
+import logging
+logger = logging.getLogger(__name__)
 
-# Create the function
+# Create the function ==================================================================
 async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     """
     Create the zeta function. 
@@ -20,23 +22,38 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     file : fastapi.UploadFile
         File to use to create the runner image.
     """
-    # Cleaning old zeta image
+    # Cleaning old zeta functions
+    logger.info(f"Deleting old zeta function data")
     try:
-        print("Cleaning old zeta images")
         clean_old_zeta(zeta_name)
     except Exception as e:
-        raise RuntimeError("Error cleaning old zeta function: " + str(e))
+        errmsg = f"Error cleaning old zeta function: {str(e)}"
+        logger.error(errmsg)
+        raise RuntimeError(errmsg)
+    # extract handler
+    logger.info(f"Extracting handler from input files")
     try:
-        print("exctracting handler data")
         handler_content = await extract_handler_data(file)
     except Exception as e:
-        raise RuntimeError("Error reading handler and extracting content: " + str(e))
-    print("Build runner image")
-    runner_image_name = build_zeta_runner_image(handler_content, zeta_name)
-    if not runner_image_name:
-        raise RuntimeError("Error buidling runner image.")
-    print("Generating zeta metadata")
-    meta = create_zeta_metadata(zeta_name)
+        errmsg = f"Error reading handler and extracting content: {str(e)}" 
+        logger.error(errmsg)
+        raise RuntimeError(errmsg)
+    # Build runner image
+    logger.info(f"Build the zeta runner image")
+    try: 
+        build_zeta_runner_image(handler_content, zeta_name)
+    except:
+        errmsg = f"Error buidling runner image."
+        logger.error(errmsg)
+        raise RuntimeError(errmsg)
+    # Generating zeta metadata
+    logger.info(f"Create zeta function metadata")
+    try:
+        meta = create_zeta_metadata(zeta_name)
+    except:
+        errmsg = f"Error creating zeta metadata."
+        logger.error(errmsg)
+        raise RuntimeError(errmsg)
     return meta
 
 def clean_old_zeta(zeta_name: str):
@@ -50,7 +67,6 @@ def clean_old_zeta(zeta_name: str):
     - zeta_image: str
     """
     # Shutdown any up containers with old related images
-    print("[ZETA CLEANUP] - cleaning up old zeta containers")
     old_images = docker_service.get_images_from_prefix(zeta_name)
     try:
         for image in old_images:
@@ -59,15 +75,13 @@ def clean_old_zeta(zeta_name: str):
                 docker_service.stop_container(container.id)
                 docker_service.remove_container(container.id)
     except:
-        print("No container found for", zeta_name)
+        logger.info(f"No container found for {zeta_name}")
     # Delete old related images
-    print("[ZETA CLEANUP] - cleaning up old zeta image runner")
     try:
         docker_service.delete_images_from_prefix(zeta_name)
     except Exception as e:
         raise RuntimeError("Error deleting images from prefix " + zeta_name + " : " + str(e))
     # Delete zeta metadata
-    print("[ZETA CLEANUP] - Deleting old zeta_metadata")
     delete_zeta_metadata(zeta_name)
 
 async def extract_handler_data(file: UploadFile = File(...)):
@@ -113,8 +127,7 @@ def build_zeta_runner_image(function: str, zeta_name:str = ""):
         try:
             docker_service.build_image(image_name=image_name, dockerfile_path=tmpdirname)
         except subprocess.CalledProcessError as e:
-            print("Error occurred while building the Docker image:", e)
-            return None
+            raise RuntimeError("Error occurred while building the Docker image:", e)
     # Return the image name
     return image_name
 
@@ -123,7 +136,7 @@ async def process_file(file: UploadFile = File(...)):
     text = content.decode("utf-8")
     return {"filename": file.filename, "content": text}
 
-# Run the function
+# Run the function ==================================================================
 def cold_start_zeta(zeta_name:str):
     """
     Cold start the zeta function
@@ -211,15 +224,15 @@ def delete_zeta(zeta_name: str):
     try: 
         docker_service.stop_container(zeta_name)
         docker_service.remove_container(zeta_name)
-        print(f"[ZETA SERVICE] -  Successfully removed zeta runner container: {zeta_name}")
+        logger.info(f"Successfully removed zeta runner container: {zeta_name}")
     except Exception as e:
-        print(f"[ZETA SERVICE] -  Unable to stop the container: {e}")
+        logger.warning(f"Unable to stop and remove the container: {e}")
     # Delete its images
     try:
         removed_images = docker_service.delete_images_from_prefix(zeta_name)
-        print(f"[ZETA SERVICE] -  Successfully removed zeta runner images: {removed_images}")
-    except:
-        print(f"[ZETA SERVICE] -  Unable to stop the container: {e}")
+        logger.info(f"Successfully removed zeta runner images: {removed_images}")
+    except Exception as e:
+        logger.error(f"Unable to remove the zeta runner images: {e}")
     # Delete its metadata
     delete_zeta_metadata(zeta_name)
 
@@ -232,10 +245,9 @@ def prune_zeta():
         zeta_name_list.append(zeta_name)
     counter = 0
     for zeta_name in zeta_name_list:
-        print(f"[ZETA SERVICE] - Deleting zeta: {zeta_name}")
         delete_zeta(zeta_name)
         counter += 1
-    print(f"[ZETA SERVICE] - Deleted {counter} zetas")
+    logger.info(f"Deleted {counter} zetas")
 
 
 # utils
@@ -251,17 +263,17 @@ def is_zeta_up(zeta_name: str):
     """
     # Checks if the container is running
     if not docker_service.is_container_running(zeta_name):
-        print("Zeta container is not running")
+        logger.warning("Zeta container is not RUNNING")
         return False
     # Checks if the app has successfully started
     container = docker_service.get_container(zeta_name)
     host_name = retrieve_container_hostname(container)
     try:
         response = requests.get(host_name+"/is-running")
-        print("Zeta container is UP")
+        logger.info("Zeta container is UP")
         return response.status_code == 200
     except:
-        print("Zeta container is not UP")
+        logger.warning("Zeta container is not UP")
         return False
 
 def retrieve_runner_image(zeta_name: str):
@@ -276,8 +288,9 @@ def retrieve_runner_image(zeta_name: str):
                 return image
     return None
 
-# Zeta metadata
-# Zeta metadata should be tightly linked to the current deployment. a change in the functions means a redeployment, therfore deleting and re creating the metadata
+# Zeta metadata ==================================================================
+# Zeta metadata should be tightly linked to the current deployment. 
+# a change in the functions means a redeployment, therfore deleting and re creating the metadata
 zeta_meta = {}
 
 def get_all_zeta_metadata():

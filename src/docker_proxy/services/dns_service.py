@@ -1,6 +1,9 @@
 from random import randint
 from requests.exceptions import ConnectionError, ReadTimeout
-import requests
+import requests, logging
+
+# Initialize logger =====================================================
+logger = logging.getLogger(__name__)
 
 PNS = {} # Port Name System
 
@@ -27,10 +30,10 @@ def retrieve_dynamic_port():
     def is_port_used_by_other_app(port: int):
         try:
             requests.get(f"http://localhost:{port}", timeout=0.1)
-            print(f"[PORT DNS] - conflicting ports : {port} already in use")
+            logger.warning(f"conflicting ports : {port} already in use")
             return True
         except ReadTimeout:
-            print(f"[PORT DNS] - conflicting ports : {port} already in use")
+            logger.warning(f"conflicting ports : {port} already in use")
             return True
         except ConnectionError:
             return False
@@ -41,5 +44,4 @@ def retrieve_dynamic_port():
             port = ((port + 1) % 49151) + 1025
         else: 
             break
-    print(f"[PORT DNS] - Port to be assigned: {port}")
     return port

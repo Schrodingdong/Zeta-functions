@@ -7,6 +7,9 @@ import threading
 import socket
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Start heartbeat check thread
 SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
@@ -26,33 +29,42 @@ def accept_heartbeat_connection():
     server_socket.listen(1)
     try:
         while True:
-            print("[SOCKET CONNECTION] - waiting for connection...")
             connection, client_address = server_socket.accept()
             try:
-                print(f"[SOCKET CONNECTION] - Connection established.")
                 # Receive and process data
                 while data := connection.recv(1024):
                     meta = json.loads(data.decode())
-                    print(f"[SOCKET CONNECTION] - Received: {meta}")
+                    logger.info(f"HEARTBEAT - Heartbeat received: {meta}")
                     zeta_controller.heartbeat_check(meta)
             finally:
                 connection.close()
     except KeyboardInterrupt:
-        print("[SOCKET CONNECTION] - Shutting down.")
+        logger.info("Hearbeat socket shutting down")
     finally:
         server_socket.close()
         os.remove(SOCKET_PATH)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Setup logger
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)s [%(name)s.%(funcName)s] : %(message)s', 
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        filename='docker_proxy.log', 
+        encoding='utf-8', 
+        level=logging.INFO
+    )
     # Start heartbeat thread
-    heartbeat_thread = threading.Thread(target=accept_heartbeat_connection)
+    heartbeat_thread = threading.Thread(target=accept_heartbeat_connection, daemon=True)
     heartbeat_thread.start()
+    logger.info("start hearbeat thread")
     # Start 
     container_termination_thread = threading.Thread(target=zeta_controller.terminate_idle_containers, daemon=True)
     container_termination_thread.start()
+    logger.info("start idle termination thread")
     yield
     # Cleanup running zetas
+    logger.info("Pre-shutdown cleanup ...")
     zeta_service.prune_zeta()
 
 # Define fastapi app

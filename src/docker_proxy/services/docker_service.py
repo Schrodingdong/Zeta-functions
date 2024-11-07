@@ -3,6 +3,8 @@ docker service to wrap the DockerClient instance. To be used to execute containe
 """
 from docker import DockerClient
 import os
+import logging
+logger = logging.getLogger(__name__)
 
 DOCKER_SOCK = 'unix://var/run/docker.sock'
 DOCKER_HOST = DOCKER_SOCK
@@ -56,7 +58,7 @@ def get_images_from_prefix(prefix: str):
     found_images = []
     for image in image_list:
         for tag in image.tags:
-            if prefix in tag:
+            if tag.startswith(prefix) and "base-runner" not in tag:
                 found_images.append(image)
                 break
     return found_images
@@ -94,12 +96,12 @@ def delete_images_from_prefix(prefix: str):
     removed_images = []
     for image in image_list:
         for tag in image.tags:
-            if prefix in tag:
+            if tag.startswith(prefix) and "base-runner" not in tag:
                 try:
-                    print("deleting image:", tag)
+                    logger.info(f"Removing image: {tag}...")
                     docker_client.images.remove(image=image.id)
                 except:
-                    print("FORCE deleting image:", tag)
+                    logger.info(f"Forcefully removing image: {tag}...")
                     docker_client.images.remove(image=image.id, force=True)
                 finally:
                     removed_images.append(image.id)
@@ -178,7 +180,6 @@ def get_containers_of_image(image_id: str):
     - image_id: str
     """
     container_list = []
-    print("container list : ", list(docker_client.containers.list(all=True)))
     for container in list(docker_client.containers.list(all=True)):
         if container.image.id == image_id:
             container_list.append(container)
@@ -237,10 +238,10 @@ def remove_container(container_name_or_id: str):
     """
     try:
         try:
-            print("Removing container:", container_name_or_id)
+            logger.info(f"Removing container: {container_name_or_id}")
             docker_client.containers.get(container_name_or_id).remove()
         except:
-            print("Forcefully Removing container:", container_name_or_id)
+            logger.info(f"Forcefully Removing container: {container_name_or_id}")
             docker_client.containers.get(container_name_or_id).remove(force=True)
     except Exception as err :
         raise RuntimeError("Unable to remove the container of id", container_name_or_id, ":", err)
@@ -257,6 +258,6 @@ def prune_containers() -> list:
             remove_container(name)
             removed.append(name)
         except:
-            print("Can't remove container: ", name)
+            logger.warning("Can't remove container: ", name)
             continue
     return removed

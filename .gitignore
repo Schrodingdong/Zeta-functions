@@ -2,3 +2,4 @@ __pycache__
 venv
 handler_examples
 tmp
+*.log
