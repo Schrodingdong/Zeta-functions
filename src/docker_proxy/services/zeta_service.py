@@ -10,6 +10,29 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 
+# Environment setup ============================================================
+GLOBAL_NETWORK_NAME = "zeta_network"
+
+
+def setup_environment():
+    """
+    Setup zeta environment.
+    """
+    try:
+        return docker_service.create_network(GLOBAL_NETWORK_NAME)
+    except Exception as e:
+        raise RuntimeError(str(e))
+
+
+def clean_environment(network):
+    """
+    Cleanup zeta environment.
+    """
+    try:
+        network.remove()
+    except Exception as e:
+        raise RuntimeError(str(e))
+
 # Create the function ==================================================================
 async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     """
@@ -156,7 +179,8 @@ def cold_start_zeta(zeta_name:str):
         container = docker_service.instanciate_container_from_image(
             container_name=zeta_name,
             image_id=runner_image.id,
-            ports={"8000":host_port} # 8000 is the open container port
+            ports={"8000": host_port},  # 8000 is the open container port
+            network=GLOBAL_NETWORK_NAME
         )
         # Update container metadata
         update_zeta_container_metadata(zeta_name)

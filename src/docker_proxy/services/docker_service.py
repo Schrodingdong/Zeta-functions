@@ -13,6 +13,14 @@ docker_client = DockerClient(DOCKER_HOST)
 SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
 SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")     # synced with the runner's main.py
 
+# Network Mangement ===========================================================
+
+
+def create_network(network_name: str):
+    network = docker_client.networks.create(network_name, driver="bridge")
+    return network
+
+
 # Image Management Service =======================================================
 def list_images():
     """
@@ -108,8 +116,8 @@ def delete_images_from_prefix(prefix: str):
                 break
     return removed_images
 
-# Container Management Service ===================================================
-def instanciate_container_from_image(container_name: str, image_id: str, ports: dict):
+# Container Management Service ================================================
+def instanciate_container_from_image(container_name: str, image_id: str, ports: dict, network: str):
     """
     Instanciate a container for the image with id `image_id`, exposed on ports described in `ports`. 
 
@@ -130,19 +138,26 @@ def instanciate_container_from_image(container_name: str, image_id: str, ports: 
 
     if not found :
         raise Exception("Unable to find the specified image")
+    # Check if network exists
+    if len(network) > 0:
+        filtered_net_list = docker_client.networks.list(names=[network])
+        if len(filtered_net_list) == 0:
+            raise Exception(f"Unable to find the network {network}")
     # Instanciate the container
     container = docker_client.containers.run(
-        image=image_id, 
+        image=image_id,
         name=container_name,
-        detach=True, 
+        detach=True,
         ports=ports,
+        network=network,
         volumes={
             SOCKET_PATH: {
-                'bind': "/zeta/tmp/docker_proxy.sock", 
+                'bind': "/zeta/tmp/docker_proxy.sock",
                 'mode': 'ro'
             }
-        }
+        },
     )
+    print(container.attrs['NetworkSettings']['Networks'])
     return container
 
 def is_container_running(container_name: str):
