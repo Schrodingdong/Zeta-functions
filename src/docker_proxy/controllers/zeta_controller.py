@@ -67,6 +67,8 @@ async def get_zeta_metadata(zeta_name: str):
 @router.post("/create/{zeta_name}")
 async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     logger.info(f"Creating the zeta function: {zeta_name} ...")
+    if len(zeta_name) <= 1:
+        raise HTTPException(status_code=500, detail=f"Zeta name ('{zeta_name}') length needs to be 2 or more characters in length.")
     try:
         zeta_metadata = await zeta_service.create_zeta(zeta_name, file)
         return {
@@ -79,10 +81,10 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
 
 @router.post("/run/{zeta_name}")
 async def run_function(zeta_name: str, params: dict = {}):
-    logger.info(f"Running the zeta function: {zeta_name} ...")
     """
     Start the function and proxy the request to it.
     """
+    logger.info(f"Running the zeta function: {zeta_name} ...")
     # Check if the function exists
     zeta_meta = zeta_service.get_zeta_metadata(zeta_name)
     if len(zeta_meta) == 0:
