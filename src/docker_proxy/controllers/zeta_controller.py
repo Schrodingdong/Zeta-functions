@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, File, UploadFile, status
 from pydantic import BaseModel
 from datetime import timedelta, datetime
 import services.docker_service as docker_service
-import services.zeta_service as zeta_service
+from services.zeta import zeta_service
 import requests, time, json, threading, logging
 
 # Initialize Logger ====================================================
@@ -85,11 +85,12 @@ async def run_function(zeta_name: str, params: dict = {}):
     Start the function and proxy the request to it.
     """
     logger.info(f"Running the zeta function: {zeta_name} ...")
-    # Check if the function exists
+    # Check if the zeta exists
     zeta_meta = zeta_service.get_zeta_metadata(zeta_name)
     if len(zeta_meta) == 0:
         raise HTTPException(status_code=404, detail=f"Zeta function {zeta_name} not found.")
     # Start the function
+    # TODO refactor
     if(not zeta_service.is_zeta_up(zeta_name)):
         logger.info(f"Cold starting zeta : {zeta_name} ...")
         container_hostname = zeta_service.cold_start_zeta(zeta_name)

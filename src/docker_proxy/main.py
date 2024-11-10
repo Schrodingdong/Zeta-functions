@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from controllers import container_controller
 from controllers import zeta_controller
-from services import zeta_service
+from services.zeta import zeta_environment, zeta_service
 import threading
 import socket
 import os
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     )
     # Setup zeta environment
     logger.info("Setup env")
-    global_network = zeta_service.setup_environment()
+    global_network = zeta_environment.setup_environment()
     # Start heartbeat thread
     heartbeat_thread = threading.Thread(target=accept_heartbeat_connection, daemon=True)
     heartbeat_thread.start()
@@ -68,10 +68,10 @@ async def lifespan(app: FastAPI):
     yield
     # Cleanup running zetas
     logger.info("Pre-shutdown cleanup ...")
-    zeta_service.prune_zeta()
+    zeta_service.exterminate_all_zeta()
     # Cleanup zeta environment
-    logger.info("clearing up env")
-    zeta_service.clean_environment(global_network)
+    logger.info("clearing up env ...")
+    zeta_environment.clean_environment(global_network)
 
 # Define fastapi app
 app = FastAPI(lifespan=lifespan)

@@ -160,6 +160,19 @@ def instanciate_container_from_image(container_name: str, image_id: str, ports: 
     print(container.attrs['NetworkSettings']['Networks'])
     return container
 
+
+def does_container_exist(container_name: str):
+    """
+    Checks if the container is in a `RUNNING` state
+
+    Attributes
+    ---
+    - container_name: str
+    """
+    container_list_name = list(map(lambda x: x.name, docker_client.containers.list(all=True)))
+    return container_name in container_list_name
+
+
 def is_container_running(container_name: str):
     """
     Checks if the container is in a `RUNNING` state
