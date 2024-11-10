@@ -13,7 +13,8 @@ def setup_environment():
     try:
         return docker_service.create_network(GLOBAL_NETWORK_NAME)
     except Exception as e:
-        raise RuntimeError(str(e))
+        logger.error(e)
+        raise RuntimeError(f"Unable to create global network '{GLOBAL_NETWORK_NAME}'")
 
 
 def clean_environment(network):
