@@ -7,6 +7,7 @@ from . import zeta_environment as zeta_env
 import requests
 import time
 import logging
+import json
 logger = logging.getLogger(__name__)
 
 
@@ -21,14 +22,14 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     file : fastapi.UploadFile
         File to use to create the runner image.
     """
-    # Cleaning old zeta functions
+    # Delete previous zeta deployment
     logger.info("Deleting old zeta function data")
-    try:
-        clean_zeta(zeta_name)
-    except Exception as e:
-        errmsg = f"Error cleaning old zeta function: {str(e)}"
-        logger.error(errmsg)
-        raise RuntimeError(errmsg)
+    if is_zeta_created(zeta_name):
+        try:
+            delete_zeta(zeta_name)
+        except Exception as e:
+            logger.error(e)
+            raise RuntimeError("Error cleaning old zeta function")
     # extract handler
     logger.info("Extracting handler from input files")
     try:
@@ -59,40 +60,14 @@ def get_zeta_metadata(zeta_name: str) -> dict:
 
 
 # Delete the function(s)
-def clean_zeta(zeta_name: str):
-    """
-    Clean zeta files, images, containers and metadata.
-    The steps to do so are as follow :
-    - Shutdown any up containers with related images
-    - Delete related images
-
-    Attributes
-    ---
-    - zeta_image: str
-    """
-    # Shutdown any up containers with old related images
-    runner_images = docker_service.get_images_from_prefix(zeta_name)
-    try:
-        for image in runner_images:
-            runner_containers = docker_service.get_containers_of_image(image.id)
-            for container in runner_containers:
-                docker_service.stop_container(container.id)
-                docker_service.remove_container(container.id)
-    except Exception:
-        logger.info(f"No container found for {zeta_name}")
-    # Delete old related images
-    try:
-        docker_service.delete_images_from_prefix(zeta_name)
-    except Exception as e:
-        logger.error(e)
-        raise RuntimeError(f"Error deleting images from prefix {zeta_name}")
-    # Delete zeta metadata
-    meta.delete_zeta_metadata(zeta_name)
-
-
 def delete_zeta(zeta_name: str):
     """
     Delete the specified zeta.
+    The steps to do so are as follow :
+    - Check if it exists in the metadata registry
+    - Shutdown any up containers with related images
+    - Delete related images
+    - Delete metadata
 
     Attributes
     ---
@@ -135,7 +110,7 @@ def exterminate_all_zeta():
     logger.info(f"Deleted {counter} zetas")
 
 
-# Run the function ==================================================================
+# Run the function ============================================================
 def cold_start_zeta(zeta_name: str):
     """
     Cold start the zeta function
@@ -152,7 +127,7 @@ def cold_start_zeta(zeta_name: str):
         host_port = pns.retrieve_dynamic_port()
         pns.set_zeta_port(zeta_name, host_port)
         # Instanciate the container
-        container = docker_service.instanciate_container_from_image(
+        docker_service.instanciate_container_from_image(
             container_name=zeta_name,
             image_id=runner_image.id,
             ports={"8000": host_port},  # 8000 is the open container port
@@ -160,27 +135,12 @@ def cold_start_zeta(zeta_name: str):
         )
         # Update container metadata
         meta.update_zeta_container_metadata(zeta_name)
-    except Exception:
-        raise RuntimeError("Unable to run the zeta function '" + zeta_name + "'")
-    container_hostname = utils.retrieve_container_hostname(container)
-    # Wait until the container is up
-    TIMEOUT = 60
-    start_time = time.time()
-    while not is_zeta_up(zeta_name):
-        if time.time() - start_time > TIMEOUT:
-            raise RuntimeError("Zeta function is not up, exited due to timeout")
-        time.sleep(1)
-    return container_hostname
+    except Exception as e:
+        logger.error(e)
+        raise RuntimeError(f"Unable to run the zeta function '{zeta_name}'")
 
 
-def warm_start_zeta(zeta_name: str):
-    """
-    Warm start the zeta function
-
-    Attributes
-    ---
-    - zeta_name: str
-    """
+def run_zeta(zeta_name: str, params: dict = {}):
     try:
         container = docker_service.get_container(zeta_name)
     except Exception:
@@ -193,11 +153,22 @@ def warm_start_zeta(zeta_name: str):
         if time.time() - start_time > TIMEOUT:
             raise RuntimeError("Zeta function is not up. Exit due to timeout")
         time.sleep(1)
-    return container_hostname
+    # Proxy the request to the zeta
+    logger.info(f"Proxying request to: {zeta_name}")
+    try:
+        response = requests.post(
+            url=container_hostname+"/run",
+            data=json.dumps(params)
+        )
+        content = response.content.decode()
+        return json.loads(content)
+    except Exception as e:
+        raise e
 
 
 # utils =======================================================================
 def is_zeta_created(zeta_name: str) -> bool:
+    print(meta.is_zeta_registered(zeta_name))
     return meta.is_zeta_registered(zeta_name)
 
 

@@ -32,7 +32,7 @@ def terminate_idle_containers():
                 runner_container_list = zeta_meta[container_name]["runnerContainer"]
                 for runner_container in runner_container_list:
                     last_heartbeat = runner_container["lastHeartbeat"]
-                    if isinstance(last_heartbeat, float):
+                    if isinstance(last_heartbeat, float) or isinstance(last_heartbeat, int):
                         last_heartbeat = datetime.fromtimestamp(last_heartbeat)
                     if datetime.now() - last_heartbeat > IDLE_TIMEOUT:
                         if not docker_service.does_container_exist(container_name):
@@ -169,10 +169,18 @@ def update_zeta_heartbeat(container_id: str, timestamp: str):
 def delete_zeta_container_metadata(zeta_name: str):
     if zeta_name not in zeta_meta:
         return
+    # Clean the PNS record
+    container_metadata = zeta_meta[zeta_name]["runnerContainer"]
+    ports = container_metadata["containerPorts"]
+    print(ports)
+    # Clean the metadata
     zeta_meta[zeta_name]["runnerContainer"] = []
 
 
 def delete_zeta_metadata(zeta_name: str):
     if zeta_name not in zeta_meta:
         return
+    # Delete the zeta container metadata
+    delete_zeta_container_metadata(zeta_name)
+    # Delete the zeta metadata
     del zeta_meta[zeta_name]

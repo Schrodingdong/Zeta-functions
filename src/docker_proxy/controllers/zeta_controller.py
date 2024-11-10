@@ -67,23 +67,13 @@ async def run_function(zeta_name: str, params: dict = {}):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Zeta function {zeta_name} not found."
         )
-    # Start the function
-    # TODO refactor
+    # Cold start the zeta if it is not up
     if not zeta_service.is_zeta_up(zeta_name):
-        logger.info(f"Cold starting zeta : {zeta_name} ...")
-        container_hostname = zeta_service.cold_start_zeta(zeta_name)
-    else:
-        logger.info(f"starting zeta : {zeta_name} ...")
-        container_hostname = zeta_service.warm_start_zeta(zeta_name)
-    # Proxy the request to the zeta
-    logger.info(f"running zeta : {zeta_name}")
+        zeta_service.cold_start_zeta(zeta_name)
+    # Run the zeta
     try:
-        response = requests.post(
-            url=container_hostname+"/run",
-            data=json.dumps(params)
-        )
-        content = response.content.decode()
-        return {"status": "Success", "response": json.loads(content)}
+        json_content = zeta_service.run_zeta(zeta_name, params)
+        return {"status": "Success", "response": json_content}
     except Exception as e:
         logger.error(e)
         raise HTTPException(
@@ -96,7 +86,7 @@ async def run_function(zeta_name: str, params: dict = {}):
 def delete_zeta(zeta_name: str):
     logger.info(f"Deleting the zeta function: {zeta_name} ...")
     try:
-        zeta_service.clean_zeta(zeta_name)
+        zeta_service.delete_zeta(zeta_name)
     except Exception as e:
         logger.error(e)
         raise HTTPException(

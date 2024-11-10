@@ -157,7 +157,6 @@ def instanciate_container_from_image(container_name: str, image_id: str, ports: 
             }
         },
     )
-    print(container.attrs['NetworkSettings']['Networks'])
     return container
 
 
