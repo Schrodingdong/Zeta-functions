@@ -1,7 +1,7 @@
 from fastapi import File, UploadFile
 import services.docker_service as docker_service
-import services.dns_service as dns_service
 from . import zeta_metadata as meta
+from . import pns_service as pns
 from . import zeta_utils as utils
 from . import zeta_environment as zeta_env
 import requests
@@ -149,8 +149,8 @@ def cold_start_zeta(zeta_name: str):
         raise RuntimeError("Unable to run the zeta function '" + zeta_name + "'")
     try:
         # Get dynamic port and set it for the zeta in the DNS
-        host_port = dns_service.retrieve_dynamic_port()
-        dns_service.set_zeta_port(zeta_name, host_port)
+        host_port = pns.retrieve_dynamic_port()
+        pns.set_zeta_port(zeta_name, host_port)
         # Instanciate the container
         container = docker_service.instanciate_container_from_image(
             container_name=zeta_name,
