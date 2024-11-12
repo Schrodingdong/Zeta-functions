@@ -1,15 +1,9 @@
 """
 docker service to wrap the DockerClient instance. To be used to execute container engine specific commands.
 """
-from docker import DockerClient
+from services.docker import docker_client, logger
 import os
-import logging
-logger = logging.getLogger(__name__)
 
-DOCKER_SOCK = 'unix://var/run/docker.sock'
-DOCKER_HOST = DOCKER_SOCK
-DOCKER_PORT = 2373
-docker_client = DockerClient(DOCKER_HOST)
 SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
 SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")     # synced with the runner's main.py
 
@@ -21,100 +15,17 @@ def create_network(network_name: str):
     return network
 
 
-# Image Management Service =======================================================
-def list_images():
-    """
-    List all docker images images
-    """
-    return docker_client.images.list()
+def does_network_exist(network_name: str):
+    return len(docker_client.networks.list(names=[network_name])) > 0
 
-def get_image_from_tag(image_tag: str):
-    """
-    Retrieve the image tagged `image_tag`
 
-    Attributes
-    ---
-    - image_tag: str
-    """
-    return list(filter(
-        lambda image: image_tag in image.tags,
-        list_images()
-    ))[0]
+def get_network(network_name: str):
+    filtered_network_list = docker_client.networks.list(names=[network_name])
+    if len(filtered_network_list) == 1:
+        return filtered_network_list[0]
+    else:
+        raise RuntimeError(f"Can't find network '{network_name}'")
 
-def get_image_from_id(image_id: str):
-    """
-    Retrieve the image with id `image_id`
-
-    Attributes
-    ---
-    - image_id: str
-    """
-    return list(filter(
-        lambda image: (image.id == image_id) or (image.short_id in image_id),
-        list_images()
-    ))[0]
-
-def get_images_from_prefix(prefix: str):
-    """
-    Return a list of images given a string prefix. The matching is done to the `image.tags` elements.
-
-    Attributes
-    ---
-    - prefix: str
-    """
-    image_list = docker_client.images.list()
-    found_images = []
-    for image in image_list:
-        for tag in image.tags:
-            if tag.startswith(prefix) and "base-runner" not in tag:
-                found_images.append(image)
-                break
-    return found_images
-
-def build_image(image_name: str, dockerfile_path: str):
-    """
-    Build an image of `image_name`, using the dockerfile specified at `dockerfile_path`
-
-    Attributes
-    ---
-    - image_name: str
-        The image name to be used
-    - dockerfile_path: str
-        Dockerfile to use for the build
-    """
-    try:
-        docker_client.images.build(tag=image_name, path=dockerfile_path)
-    except:
-        raise Exception("Unable to build the image '" + image_name + "': "+ dockerfile_path)
-
-def delete_images_from_prefix(prefix: str):
-    """
-    Delete the images prefixed with `prefix`
-
-    Attributes
-    ---
-    - prefix: str
-        Prefix to check the image tag on.
-    
-    Return Value
-    ---
-    - removed_containers: List
-    """
-    image_list = docker_client.images.list()
-    removed_images = []
-    for image in image_list:
-        for tag in image.tags:
-            if tag.startswith(prefix) and "base-runner" not in tag:
-                try:
-                    logger.info(f"Removing image: {tag}...")
-                    docker_client.images.remove(image=image.id)
-                except:
-                    logger.info(f"Forcefully removing image: {tag}...")
-                    docker_client.images.remove(image=image.id, force=True)
-                finally:
-                    removed_images.append(image.id)
-                break
-    return removed_images
 
 # Container Management Service ================================================
 def instanciate_container_from_image(container_name: str, image_id: str, ports: dict, network: str):

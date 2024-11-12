@@ -1,5 +1,6 @@
 from fastapi import File, UploadFile
 from .. import docker_service
+from services.docker import image_service
 import subprocess
 import tempfile
 import logging
@@ -33,17 +34,19 @@ def build_zeta_runner_image(function: str, zeta_name: str = ""):
         with open(function_file_path, "w") as f:
             f.write(function)
         # Generate a Dockerfile
+        img_uuid = uuid.uuid4()
         dockerfile_content = f"""
         FROM {BASE_RUNNER}
         WORKDIR /zeta
+        ENV UNIQUE_VAR={img_uuid}
         COPY function.py /zeta/handler/handler.py
         """
         with open(dockerfile_path, "w") as f:
             f.write(dockerfile_content)
         # Build the Docker image
-        image_name = f"{zeta_name}-runner-image-{uuid.uuid4()}"
+        image_name = f"{zeta_name}-runner-image-{img_uuid}"
         try:
-            docker_service.build_image(
+            image_service.build_image(
                 image_name=image_name,
                 dockerfile_path=tmpdirname
             )
@@ -64,7 +67,7 @@ def retrieve_runner_image(zeta_name: str):
     """
     Retrieve Image runner from the zeta function name
     """
-    image_list = docker_service.list_images()
+    image_list = image_service.list_images()
     for image in image_list:
         image_tags = image.tags
         for tag in image_tags:

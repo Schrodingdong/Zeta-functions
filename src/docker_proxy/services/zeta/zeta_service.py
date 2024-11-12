@@ -1,5 +1,6 @@
 from fastapi import File, UploadFile
 import services.docker_service as docker_service
+from services.docker import image_service
 from . import zeta_metadata as meta
 from . import pns_service as pns
 from . import zeta_utils as utils
@@ -88,7 +89,7 @@ def delete_zeta(zeta_name: str):
         logger.info(f"No container found for {zeta_name}")
     # Delete its images
     try:
-        removed_images = docker_service.delete_images_from_prefix(zeta_name)
+        removed_images = image_service.delete_images_from_prefix(zeta_name)
         logger.info(f"Successfully removed zeta runner images: {removed_images}")
     except Exception as e:
         logger.error(f"Unable to remove the zeta runner images: {e}")
@@ -168,8 +169,9 @@ def run_zeta(zeta_name: str, params: dict = {}):
 
 # utils =======================================================================
 def is_zeta_created(zeta_name: str) -> bool:
-    print(meta.is_zeta_registered(zeta_name))
-    return meta.is_zeta_registered(zeta_name)
+    is_zeta_registered = meta.is_zeta_registered(zeta_name)
+    print(f"is {zeta_name} a registered zeta ? -> {is_zeta_registered}")
+    return is_zeta_registered
 
 
 def is_zeta_up(zeta_name: str) -> bool:

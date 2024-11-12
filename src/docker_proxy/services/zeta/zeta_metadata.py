@@ -4,6 +4,7 @@ A change in the functions means a redeployment,
 Therfore deleting and re creating the metadata
 """
 import services.docker_service as docker_service
+from services.docker import image_service
 from datetime import datetime, timedelta
 import threading
 import logging
@@ -33,6 +34,9 @@ def terminate_idle_containers():
                 for runner_container in runner_container_list:
                     last_heartbeat = runner_container["lastHeartbeat"]
                     if isinstance(last_heartbeat, float) or isinstance(last_heartbeat, int):
+                        if last_heartbeat < 0:
+                            print("Container still getting initialized")
+                            continue
                         last_heartbeat = datetime.fromtimestamp(last_heartbeat)
                     if datetime.now() - last_heartbeat > IDLE_TIMEOUT:
                         if not docker_service.does_container_exist(container_name):
@@ -85,7 +89,7 @@ def accept_heartbeat_connection():
 
 # Zeta metadata ===============================================================
 def create_zeta_metadata(zeta_name: str):
-    runner_image_list = docker_service.get_images_from_prefix(zeta_name)
+    runner_image_list = image_service.get_images_from_prefix(zeta_name)
     if len(runner_image_list) > 1:  # Normaly, this shouldn't happen
         errmsg = f"Found {len(runner_image_list)} runners found for zeta {zeta_name}"
         logger.error(errmsg)
@@ -146,7 +150,7 @@ def update_zeta_container_metadata(zeta_name: str):
             "containerName": container.name,
             "containerId": container.id,
             "containerPorts": container.ports,
-            "lastHeartbeat": 0
+            "lastHeartbeat": -1
         }
     )
 
@@ -154,7 +158,6 @@ def update_zeta_container_metadata(zeta_name: str):
 def update_zeta_heartbeat(container_id: str, timestamp: str):
     if container_id:
         container = docker_service.get_container(container_id)
-        "".startswith
         if container.name == container_id or container.id.startswith(container_id):
             if is_zeta_registered(container.name):
                 with lock:
@@ -169,10 +172,7 @@ def update_zeta_heartbeat(container_id: str, timestamp: str):
 def delete_zeta_container_metadata(zeta_name: str):
     if zeta_name not in zeta_meta:
         return
-    # Clean the PNS record
-    container_metadata = zeta_meta[zeta_name]["runnerContainer"]
-    ports = container_metadata["containerPorts"]
-    print(ports)
+    # TODO : Clean the PNS record
     # Clean the metadata
     zeta_meta[zeta_name]["runnerContainer"] = []
 

@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from controllers import container_controller
+# from controllers import container_controller
 from controllers import zeta_controller
 from services.zeta import zeta_environment, zeta_service, zeta_metadata
 import threading
@@ -48,5 +48,5 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Register routers
-app.include_router(container_controller.router, prefix="/container")
+# app.include_router(container_controller.router, prefix="/container")
 app.include_router(zeta_controller.router, prefix="/zeta")
