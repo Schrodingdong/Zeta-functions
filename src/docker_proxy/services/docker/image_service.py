@@ -11,7 +11,8 @@ def list_images():
 
 def get_images_from_prefix(prefix: str):
     """
-    Return a list of images given a string prefix. The matching is done to the `image.tags` elements.
+    Return a list of images given a string prefix.
+    The matching is done to the `image.tags` elements.
 
     Attributes
     ---
@@ -26,10 +27,11 @@ def get_images_from_prefix(prefix: str):
                 break
     return found_images
 
+
 # Build image ======================================================
 def build_image(image_name: str, dockerfile_path: str):
     """
-    Build an image of `image_name`, using the dockerfile specified at `dockerfile_path`
+    Build an image of `image_name`, using the dockerfile at `dockerfile_path`
 
     Attributes
     ---
@@ -44,8 +46,9 @@ def build_image(image_name: str, dockerfile_path: str):
             path=dockerfile_path,
             forcerm=True  # Alwyas remove intermediate containers
         )
-    except Exception:
-        raise Exception("Unable to build the image '" + image_name + "': "+ dockerfile_path)
+    except Exception as e:
+        logger.error(f"Unable to build the image {image_name}: {dockerfile_path}'\n{e}")
+        raise Exception(e)
 
 
 # Delete image =====================================================
@@ -65,11 +68,10 @@ def delete_images_from_prefix(prefix: str):
     image_list = docker_client.images.list()
     removed_images = []
     for image in image_list:
-        print(f"for {image} we have these tags : {image.tags}")
         for tag in image.tags:
             if tag.startswith(prefix) and "base-runner" not in tag:
                 try:
-                    logger.info(f"Removing image: {tag}...")
+                    logger.error(f"Removing image: {tag}...")
                     docker_client.images.remove(image=image.id)
                 except Exception:
                     logger.info(f"Forcefully removing image: {tag}...")
