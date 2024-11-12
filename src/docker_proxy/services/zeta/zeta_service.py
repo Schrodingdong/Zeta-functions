@@ -1,6 +1,5 @@
 from fastapi import File, UploadFile
-import services.docker_service as docker_service
-from services.docker import image_service
+from services.docker import image_service, container_service
 from . import zeta_metadata as meta
 from . import pns_service as pns
 from . import zeta_utils as utils
@@ -78,10 +77,10 @@ def delete_zeta(zeta_name: str):
     if not is_zeta_created(zeta_name):
         raise RuntimeError("Zeta function not found")
     # Down the container
-    if docker_service.does_container_exist(zeta_name):
+    if container_service.does_container_exist(zeta_name):
         try:
-            docker_service.stop_container(zeta_name)
-            docker_service.remove_container(zeta_name)
+            container_service.stop_container(zeta_name)
+            container_service.remove_container(zeta_name)
             logger.info(f"Successfully removed zeta runner container: {zeta_name}")
         except Exception as e:
             logger.warning(f"Unable to stop and remove the container: {e}")
@@ -128,7 +127,7 @@ def cold_start_zeta(zeta_name: str):
         host_port = pns.retrieve_dynamic_port()
         pns.set_zeta_port(zeta_name, host_port)
         # Instanciate the container
-        docker_service.instanciate_container_from_image(
+        container_service.instanciate_container_from_image(
             container_name=zeta_name,
             image_id=runner_image.id,
             ports={"8000": host_port},  # 8000 is the open container port
@@ -143,7 +142,7 @@ def cold_start_zeta(zeta_name: str):
 
 def run_zeta(zeta_name: str, params: dict = {}):
     try:
-        container = docker_service.get_container(zeta_name)
+        container = container_service.get_container(zeta_name)
     except Exception:
         raise RuntimeError(f"Unable to run the zeta function '{zeta_name}'")
     container_hostname = utils.retrieve_container_hostname(container)
@@ -186,11 +185,11 @@ def is_zeta_up(zeta_name: str) -> bool:
     - zeta_name: str
     """
     # Checks if the container is running
-    if not docker_service.is_container_running(zeta_name):
+    if not container_service.is_container_running(zeta_name):
         logger.warning("Zeta container is not RUNNING")
         return False
     # Checks if the app has successfully started
-    container = docker_service.get_container(zeta_name)
+    container = container_service.get_container(zeta_name)
     host_name = utils.retrieve_container_hostname(container)
     try:
         response = requests.get(host_name+"/is-running")

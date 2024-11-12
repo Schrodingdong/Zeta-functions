@@ -1,4 +1,3 @@
-import services.docker_service as docker_service
 from services.docker import network_service
 import logging
 logger = logging.getLogger(__name__)

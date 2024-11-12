@@ -1,6 +1,5 @@
 from fastapi import File, UploadFile
-from .. import docker_service
-from services.docker import image_service
+from services.docker import image_service, container_service
 import subprocess
 import tempfile
 import logging
@@ -84,7 +83,7 @@ def retrieve_container_hostname(container):
     TIMEOUT = 60
     start_time = time.time()
     while len(container.ports) == 0:
-        container = docker_service.get_container(container.name)
+        container = container_service.get_container(container.name)
         if time.time() - start_time > TIMEOUT:
             raise RuntimeError(
                 "Unable to retreive container hostname. Exit due to timeout"

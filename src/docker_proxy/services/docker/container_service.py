@@ -1,16 +1,14 @@
-"""
-docker service to wrap the DockerClient instance. To be used to execute container engine specific commands.
-"""
 from services.docker import docker_client, logger
 import os
 
-SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
-SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")     # synced with the runner's main.py
+
+SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")
+SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")
 
 
 def instanciate_container_from_image(container_name: str, image_id: str, ports: dict, network: str):
     """
-    Instanciate a container for the image with id `image_id`, exposed on ports described in `ports`. 
+    Instanciate a container for the image with id `image_id`, exposed on ports described in `ports`.
 
     Attributes
     ---
@@ -27,13 +25,13 @@ def instanciate_container_from_image(container_name: str, image_id: str, ports: 
             found = True
             break
 
-    if not found :
+    if not found:
         raise Exception("Unable to find the specified image")
     # Check if network exists
     if len(network) > 0:
         filtered_net_list = docker_client.networks.list(names=[network])
         if len(filtered_net_list) == 0:
-            raise Exception(f"Unable to find the network {network}")
+            logger.error(f"Unable to find the network '{network}'")
     # Instanciate the container
     container = docker_client.containers.run(
         image=image_id,
@@ -67,12 +65,13 @@ def is_container_running(container_name: str):
     """
     Checks if the container is in a `RUNNING` state
 
-    Attributes 
+    Attributes
     ---
     - container_name: str
     """
     container_list_name = list(map(lambda x: x.name, docker_client.containers.list()))
     return container_name in container_list_name
+
 
 def get_container(container_name_or_id: str):
     """
@@ -86,8 +85,10 @@ def get_container(container_name_or_id: str):
     try:
         container = docker_client.containers.get(container_name_or_id)
         return container
-    except Exception as err :
-        raise RuntimeError("Unable to retrieve the container: ", err)
+    except Exception as e:
+        logger.error(f"Unable to retrieve the container of id '{container_name_or_id}'\n{e}")
+        raise Exception(e)
+
 
 def get_containers_of_image(image_id: str):
     """
@@ -103,6 +104,7 @@ def get_containers_of_image(image_id: str):
             container_list.append(container)
     return container_list
 
+
 def restart_container(container_name_or_id: str):
     """
     Restart the specified container
@@ -114,8 +116,10 @@ def restart_container(container_name_or_id: str):
     """
     try:
         docker_client.containers.get(container_name_or_id).restart()
-    except Exception as err :
-        raise RuntimeError("Unable to restart the container of id "+ container_name_or_id + " : ", err)
+    except Exception as e:
+        logger.error(f"Unable to restart the container of id '{container_name_or_id}'\n{e}")
+        raise Exception(e)
+
 
 def stop_container(container_name_or_id: str):
     """
@@ -128,8 +132,10 @@ def stop_container(container_name_or_id: str):
     """
     try:
         docker_client.containers.get(container_name_or_id).stop()
-    except Exception as err :
-        raise RuntimeError("Unable to stop the container of id", container_name_or_id, ":", err)
+    except Exception as e:
+        logger.error(f"Unable to stop the container of id '{container_name_or_id}'\n{e}")
+        raise Exception(e)
+
 
 def run_container(container_name_or_id: str):
     """
@@ -142,8 +148,10 @@ def run_container(container_name_or_id: str):
     """
     try:
         docker_client.containers.run(container_name_or_id)
-    except Exception as err :
-        raise RuntimeError("Unable to run the container of id", container_name_or_id, ":", err)
+    except Exception as e:
+        logger.error(f"Unable to run the container of id '{container_name_or_id}'\n{e}")
+        raise Exception(e)
+
 
 def remove_container(container_name_or_id: str):
     """
@@ -158,11 +166,13 @@ def remove_container(container_name_or_id: str):
         try:
             logger.info(f"Removing container: {container_name_or_id}")
             docker_client.containers.get(container_name_or_id).remove()
-        except:
+        except Exception:
             logger.info(f"Forcefully Removing container: {container_name_or_id}")
             docker_client.containers.get(container_name_or_id).remove(force=True)
-    except Exception as err :
-        raise RuntimeError("Unable to remove the container of id", container_name_or_id, ":", err)
+    except Exception as e:
+        logger.error(f"Unable to remove the container of id '{container_name_or_id}'\n{e}")
+        raise Exception(e)
+
 
 def prune_containers() -> list:
     """
@@ -170,12 +180,12 @@ def prune_containers() -> list:
     """
     # TODO : Make sure that the once we add networking, we will be able to prune container spun up by a specific container
     removed = []
-    for name in list(map(lambda x: x.name, docker_client.containers.list(all=True))):
+    for container_name in list(map(lambda x: x.name, docker_client.containers.list(all=True))):
         try:
-            stop_container(name)
-            remove_container(name)
-            removed.append(name)
-        except:
-            logger.warning("Can't remove container: ", name)
+            stop_container(container_name)
+            remove_container(container_name)
+            removed.append(container_name)
+        except Exception:
+            logger.warning(f"Can't remove container: {container_name}")
             continue
     return removed

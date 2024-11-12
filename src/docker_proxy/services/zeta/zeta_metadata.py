@@ -3,8 +3,7 @@ Zeta metadata should be tightly linked to the current deployment.
 A change in the functions means a redeployment,
 Therfore deleting and re creating the metadata
 """
-import services.docker_service as docker_service
-from services.docker import image_service
+from services.docker import image_service, container_service
 from datetime import datetime, timedelta
 import threading
 import logging
@@ -39,13 +38,13 @@ def terminate_idle_containers():
                             continue
                         last_heartbeat = datetime.fromtimestamp(last_heartbeat)
                     if datetime.now() - last_heartbeat > IDLE_TIMEOUT:
-                        if not docker_service.does_container_exist(container_name):
+                        if not container_service.does_container_exist(container_name):
                             logger.warning(f"Zeta runner container {container_name} doesn't exist")
                             continue
                         try:
                             # Removing zeta function runner containers
-                            docker_service.stop_container(container_name)
-                            docker_service.remove_container(container_name)
+                            container_service.stop_container(container_name)
+                            container_service.remove_container(container_name)
                             # Removing container meta for zeta
                             delete_zeta_container_metadata(container_name)
                             logger.info(f"Terminated idle zeta runner container {container_name}")
@@ -141,7 +140,7 @@ def is_zeta_registered(zeta_name: str) -> bool:
 
 def update_zeta_container_metadata(zeta_name: str):
     try:
-        container = docker_service.get_container(zeta_name)
+        container = container_service.get_container(zeta_name)
     except Exception as e:
         logger.error(e)
         raise RuntimeError(f"Can't find zeta container runner: {zeta_name}")
@@ -157,7 +156,7 @@ def update_zeta_container_metadata(zeta_name: str):
 
 def update_zeta_heartbeat(container_id: str, timestamp: str):
     if container_id:
-        container = docker_service.get_container(container_id)
+        container = container_service.get_container(container_id)
         if container.name == container_id or container.id.startswith(container_id):
             if is_zeta_registered(container.name):
                 with lock:
