@@ -1,4 +1,5 @@
 import services.docker_service as docker_service
+from services.docker import network_service
 import logging
 logger = logging.getLogger(__name__)
 
@@ -11,10 +12,10 @@ def setup_environment():
     Setup zeta environment.
     """
     try:
-        if not docker_service.does_network_exist(GLOBAL_NETWORK_NAME):
-            return docker_service.create_network(GLOBAL_NETWORK_NAME)
+        if not network_service.does_network_exist(GLOBAL_NETWORK_NAME):
+            return network_service.create_network(GLOBAL_NETWORK_NAME)
         else:
-            return docker_service.get_network(GLOBAL_NETWORK_NAME)
+            return network_service.get_network(GLOBAL_NETWORK_NAME)
     except Exception as e:
         logger.error(e)
         raise RuntimeError(f"Unable to create global network '{GLOBAL_NETWORK_NAME}'")

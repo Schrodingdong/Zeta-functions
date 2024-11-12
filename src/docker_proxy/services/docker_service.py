@@ -7,27 +7,7 @@ import os
 SOCKET_DIR = os.path.join(os.getcwd(), "src/docker_proxy/tmp")  # synced with the runner's main.py
 SOCKET_PATH = os.path.join(SOCKET_DIR, "docker_proxy.sock")     # synced with the runner's main.py
 
-# Network Mangement ===========================================================
 
-
-def create_network(network_name: str):
-    network = docker_client.networks.create(network_name, driver="bridge")
-    return network
-
-
-def does_network_exist(network_name: str):
-    return len(docker_client.networks.list(names=[network_name])) > 0
-
-
-def get_network(network_name: str):
-    filtered_network_list = docker_client.networks.list(names=[network_name])
-    if len(filtered_network_list) == 1:
-        return filtered_network_list[0]
-    else:
-        raise RuntimeError(f"Can't find network '{network_name}'")
-
-
-# Container Management Service ================================================
 def instanciate_container_from_image(container_name: str, image_id: str, ports: dict, network: str):
     """
     Instanciate a container for the image with id `image_id`, exposed on ports described in `ports`. 
