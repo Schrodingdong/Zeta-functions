@@ -9,8 +9,8 @@ router = APIRouter()
 
 def check_if_zeta_exists_or_404(zeta_name: str):
     # Check if the zeta exists
-    zeta_meta = zeta_service.get_zeta_metadata(zeta_name)
-    if len(zeta_meta) == 0:
+    is_zeta_created = zeta_service.is_zeta_created(zeta_name)
+    if not is_zeta_created:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Zeta function '{zeta_name}' not found."

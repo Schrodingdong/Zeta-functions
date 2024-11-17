@@ -5,6 +5,7 @@ Therfore deleting and re creating the metadata
 """
 from services.docker import image_service, container_service
 from datetime import datetime, timedelta
+from . import pns_service
 import threading
 import logging
 import socket
@@ -171,7 +172,11 @@ def update_zeta_heartbeat(container_id: str, timestamp: str):
 def delete_zeta_container_metadata(zeta_name: str):
     if zeta_name not in zeta_meta:
         return
-    # TODO : Clean the PNS record
+    # Clean the PNS record
+    container_meta_list = zeta_meta[zeta_name]["runnerContainer"]
+    for container_meta in container_meta_list:
+        container_port = int(container_meta["containerPorts"]["8000/tcp"][0]["HostPort"])
+        pns_service.delete_pns_port_entry(container_port)
     # Clean the metadata
     zeta_meta[zeta_name]["runnerContainer"] = []
 

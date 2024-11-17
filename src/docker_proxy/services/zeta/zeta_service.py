@@ -23,9 +23,9 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
         File to use to create the runner image.
     """
     # Delete previous zeta deployment
-    logger.info("Deleting old zeta function data")
     if is_zeta_created(zeta_name):
         try:
+            logger.info("Deleting previous zeta deployment")
             delete_zeta(zeta_name)
         except Exception as e:
             logger.error(e)
@@ -169,7 +169,6 @@ def run_zeta(zeta_name: str, params: dict = {}):
 # utils =======================================================================
 def is_zeta_created(zeta_name: str) -> bool:
     is_zeta_registered = meta.is_zeta_registered(zeta_name)
-    print(f"is {zeta_name} a registered zeta ? -> {is_zeta_registered}")
     return is_zeta_registered
 
 

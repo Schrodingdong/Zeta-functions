@@ -9,18 +9,22 @@ PNS = {}  # Port Name System - port-to-containerName mapping
 
 
 def set_zeta_port(zeta_name: str, container_port: int):
+    logger.info("PNS before updating: " + str(PNS))
     PNS[container_port] = zeta_name
+    logger.info("PNS after deletion: " + str(PNS))
 
 
 def purge_pns_port():
-    for port in PNS:
+    for port in PNS.keys():
         del PNS[port]
 
 
 def delete_pns_port_entry(container_port: int):
     if container_port not in PNS:
         return
+    logger.info("PNS before deletion: " + str(PNS))
     del PNS[container_port]
+    logger.info("PNS after deletion: " + str(PNS))
 
 
 def retrieve_dynamic_port():
@@ -31,7 +35,7 @@ def retrieve_dynamic_port():
     - Port shouldn't be used by other apps
     """
     def is_port_in_pns(port: int):
-        return port in PNS
+        return port in PNS.keys()
 
     def is_port_used_by_other_app(port: int):
         try:
