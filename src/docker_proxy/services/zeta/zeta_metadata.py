@@ -88,9 +88,19 @@ def accept_heartbeat_connection():
 
 
 # Zeta metadata ===============================================================
+# Create ======================================================================
 def create_zeta_metadata(zeta_name: str):
+    """
+    Create zeta metadata for the specified zeta.
+
+    Attributes
+    ---
+    zeta_name: str
+    """
     runner_image_list = image_service.get_images_from_prefix(zeta_name)
-    if len(runner_image_list) > 1:  # Normaly, this shouldn't happen
+    if len(runner_image_list) > 1:
+        # Normaly, this shouldn't happen unless if manually poked
+        # around the docker images
         errmsg = f"Found {len(runner_image_list)} runners found for zeta {zeta_name}"
         logger.error(errmsg)
         raise RuntimeError(errmsg)
@@ -112,6 +122,7 @@ def create_zeta_metadata(zeta_name: str):
     return meta
 
 
+# Read ========================================================================
 def get_all_zeta_metadata():
     """
     Returns a dict of the zeta names and metadata.
@@ -135,11 +146,23 @@ def get_zeta_metadata(zeta_name: str):
 def is_zeta_registered(zeta_name: str) -> bool:
     """
     Checks if the specified zeta is registered in the metadata.
+
+    Attributes
+    ---
+    zeta_name: str
     """
     return zeta_name in zeta_meta
 
 
+# Update ======================================================================
 def update_zeta_container_metadata(zeta_name: str):
+    """
+    Update the zeta container runner metadata for the specified zeta.
+
+    Attributes
+    ---
+    zeta_name: str
+    """
     try:
         container = container_service.get_container(zeta_name)
     except Exception as e:
@@ -156,6 +179,13 @@ def update_zeta_container_metadata(zeta_name: str):
 
 
 def update_zeta_heartbeat(container_id: str, timestamp: str):
+    """
+    Update the zeta container runner Heartbeat for the specified zeta.
+
+    Attributes
+    ---
+    zeta_name: str
+    """
     if container_id:
         container = container_service.get_container(container_id)
         if container.name == container_id or container.id.startswith(container_id):
@@ -169,7 +199,15 @@ def update_zeta_heartbeat(container_id: str, timestamp: str):
                     runner_container["lastHeartbeat"] = float(timestamp)
 
 
+# Deletion ====================================================================
 def delete_zeta_container_metadata(zeta_name: str):
+    """
+    Delete the zeta container runner metadata for the specified zeta.
+
+    Attributes
+    ---
+    zeta_name: str
+    """
     if zeta_name not in zeta_meta:
         return
     # Clean the PNS record
@@ -182,9 +220,14 @@ def delete_zeta_container_metadata(zeta_name: str):
 
 
 def delete_zeta_metadata(zeta_name: str):
+    """
+    Delete the metadata for the zeta function
+
+    Attributes
+    ---
+    zeta_name: str
+    """
     if zeta_name not in zeta_meta:
         return
-    # Delete the zeta container metadata
     delete_zeta_container_metadata(zeta_name)
-    # Delete the zeta metadata
     del zeta_meta[zeta_name]
