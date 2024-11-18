@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Setup logger
     logging.basicConfig(
-        format='%(asctime)s %(levelname)s [%(name)s.%(funcName)s] : %(message)s',
+        format='%(asctime)s %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] : %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p',
         filename='docker_proxy.log',
         encoding='utf-8',
