@@ -3,3 +3,4 @@ venv
 handler_examples
 tmp
 *.log
+*.db
