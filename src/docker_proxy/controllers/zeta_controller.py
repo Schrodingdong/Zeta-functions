@@ -21,10 +21,7 @@ def check_if_zeta_exists_or_404(zeta_name: str):
 async def get_all_zeta_metadata():
     logger.info("Retrieving all zeta function metadata ...")
     meta = zeta_metadata.get_all_zeta_metadata()
-    meta_list = []
-    for el in meta:
-        meta_list.append(meta[el])
-    return meta_list
+    return meta
 
 
 @router.get("/meta/{zeta_name}")

@@ -71,7 +71,7 @@ def delete_images_from_prefix(prefix: str):
         for tag in image.tags:
             if tag.startswith(prefix) and "base-runner" not in tag:
                 try:
-                    logger.error(f"Removing image: {tag}...")
+                    logger.info(f"Removing image: {tag}...")
                     docker_client.images.remove(image=image.id)
                 except Exception:
                     logger.info(f"Forcefully removing image: {tag}...")

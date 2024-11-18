@@ -28,7 +28,7 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
             logger.info("Deleting previous zeta deployment")
             delete_zeta(zeta_name)
         except Exception as e:
-            logger.error(e)
+            logger.error(f"Error cleaning old zeta function: {e}")
             raise RuntimeError("Error cleaning old zeta function")
     # extract handler
     logger.info("Extracting handler from input files")
@@ -49,7 +49,7 @@ async def create_zeta(zeta_name: str, file: UploadFile = File(...)):
     try:
         zeta_meta = meta.create_zeta_metadata(zeta_name)
     except Exception as e:
-        logger.error(e)
+        logger.error("Can't create the zeta metadata: " + str(e))
         raise RuntimeError("Error creating zeta metadata.")
     return zeta_meta
 
@@ -92,8 +92,13 @@ def delete_zeta(zeta_name: str):
         logger.info(f"Successfully removed zeta runner images: {removed_images}")
     except Exception as e:
         logger.error(f"Unable to remove the zeta runner images: {e}")
+        raise RuntimeError("Unable to delete the runner images")
     # Delete its metadata
-    meta.delete_zeta_metadata(zeta_name)
+    try:
+        meta.delete_zeta_metadata(zeta_name)
+    except Exception as e:
+        logger.error(f"Unable to delete zeta metadata: {e}")
+        raise RuntimeError("Unable to delete zeta metadata")
 
 
 def exterminate_all_zeta():
