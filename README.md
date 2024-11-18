@@ -4,12 +4,6 @@ This project will try to mimic serverless computing localy on your device.
 ## Why would you need it ?
 idk its cool tho.
 
-## Supported Languages
-- Python
-
-## Future Languages
-- Java
-
 ## Quickstart
 > Right now, the project is tested on linux / WSL. Make sure that the project is set up in the same host as the one docker is running in. 
 > For WSL make sure to check the `Use the WSL 2 based engine` and `Enable integration with my default WSL distro`.
@@ -38,6 +32,10 @@ docker build -t python-base-runner:latest ./src/runner_images/python_base_runner
 > That is because they are using the same layers. This shouldn't impact the app execution, but the more you know ;)
 - Run the function `localhost:8000/zeta/run/<zeta_name>` 
     - payload should be the same as used for the handler
+
+## Supported Languages
+- [x] Python
+- [ ] Java
 
 
 ## Requirements
