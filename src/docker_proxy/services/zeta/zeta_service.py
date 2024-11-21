@@ -4,6 +4,7 @@ from . import zeta_metadata as meta
 from . import pns_service as pns
 from . import zeta_utils as utils
 from . import zeta_environment as zeta_env
+from . import zeta_metadata
 import requests
 import time
 import logging
@@ -165,10 +166,15 @@ def run_zeta(zeta_name: str, params: dict = {}):
             url=container_hostname+"/run",
             data=json.dumps(params)
         )
+        if response.status_code / 100 != 2:
+            raise Exception(f"Error running the zeta: ZETA_FUNCTION_STATUS_CODE={response.status_code}")
         content = response.content.decode()
-        return json.loads(content)
     except Exception as e:
         raise e
+    # Update heartbeat
+    container_id = container.id
+    zeta_metadata.update_zeta_heartbeat(container_id, time.time())
+    return json.loads(content)
 
 
 # utils =======================================================================

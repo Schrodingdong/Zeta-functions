@@ -202,6 +202,7 @@ def update_zeta_container_metadata(zeta_name: str):
 
 
 def update_zeta_heartbeat(container_id: str, timestamp: int):
+    # TODO: change container_id to use zeta_name
     """
     Update the zeta container runner Heartbeat for the specified zeta.
 
@@ -213,8 +214,8 @@ def update_zeta_heartbeat(container_id: str, timestamp: int):
         container = container_service.get_container(container_id)
         if container.name == container_id or container.id.startswith(container_id):
             if is_zeta_registered(container.name):
-                with lock:
-                    db.update_zeta_runner_container_heartbeat(container_id, timestamp)
+                db.update_zeta_runner_container_heartbeat(container_id, timestamp)
+                # with lock:
                     # runner_container_list = zeta_meta[container.name]["runnerContainer"]
                     # runner_container = list(filter(
                     #     lambda rc: rc["containerName"] == container.name,
