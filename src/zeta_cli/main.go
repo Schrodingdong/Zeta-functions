@@ -8,7 +8,6 @@ import (
 func main() {
 	VersionCmd := cmd.VersionCmd
 	CreateCmd := cmd.CreateCmd
-	CreateCmd.Flags().String("file", "", "Handler file for the function")
 
 	// Collect the cmds
 	var rootCmd = &cobra.Command{Use: "zeta"}
