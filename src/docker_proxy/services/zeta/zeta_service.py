@@ -166,6 +166,7 @@ def run_zeta(zeta_name: str, params: dict = {}):
             url=container_hostname+"/run",
             data=json.dumps(params)
         )
+        # TODO is this necessary ?
         if response.status_code / 100 != 2:
             raise Exception(f"Error running the zeta: ZETA_FUNCTION_STATUS_CODE={response.status_code}")
         content = response.content.decode()
