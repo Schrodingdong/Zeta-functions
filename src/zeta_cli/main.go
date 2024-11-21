@@ -8,11 +8,13 @@ import (
 func main() {
 	VersionCmd := cmd.VersionCmd
 	CreateCmd := cmd.CreateCmd
+	DeleteCmd := cmd.DeleteCmd
 
 	// Collect the cmds
-	var rootCmd = &cobra.Command{Use: "zeta"}
+	var rootCmd = &cobra.Command{Use: "zeta [CMD]"}
 	rootCmd.AddCommand(VersionCmd)
 	rootCmd.AddCommand(CreateCmd)
+	rootCmd.AddCommand(DeleteCmd)
 
 	// Execute
 	rootCmd.Execute()

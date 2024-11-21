@@ -12,13 +12,10 @@ import (
 	"mime/multipart"
 
 	"github.com/spf13/cobra"
+	"github.com/zeta/constants"
 )
 
-const hostname = "http://localhost"
-const port = "8000"
-const url = hostname + ":" + port
-
-func handler(cmd *cobra.Command, args []string) {
+func createHandler(cmd *cobra.Command, args []string) {
 	zetaName := args[0]
 	filepath := args[1]
 	if len(zetaName) <= 1 {
@@ -53,7 +50,7 @@ func handler(cmd *cobra.Command, args []string) {
 
 	// Forward the request
 	path := "/zeta/create/" + zetaName
-	resp, err := http.Post(url+path, writer.FormDataContentType(), &requestBody)
+	resp, err := http.Post(constants.Url+path, writer.FormDataContentType(), &requestBody)
 	if err != nil {
 		fmt.Printf("Unable to communicate with docker-proxy\n")
 		fmt.Println(err)
@@ -64,20 +61,23 @@ func handler(cmd *cobra.Command, args []string) {
 	if statusCode != "201" {
 		fmt.Printf("Error creating the zeta function\n")
 		fmt.Printf("> status code: %v\n", resp.Status)
-		fmt.Printf("> body: %v\n", resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err == nil {
+			fmt.Printf("> body: %v\n", body)
+		}
 		return
 	}
 
-	zetaUrl := url + "/zeta/run/" + zetaName
+	zetaUrl := constants.Url + "/zeta/run/" + zetaName
 	fmt.Printf("Zeta '%v' created sucessfully !\n\n", zetaName)
 	fmt.Printf("To run your function, use this url :\n> %v\n", zetaUrl)
 }
 
 var CreateCmd = &cobra.Command{
-	Use:   "create [function_name] [filepath]",
+	Use:   "create [zeta_name] [filepath]",
 	Short: "Create the zeta function",
-	Long: `create the zeta function with the given 'function_name',
+	Long: `create the zeta function with the given 'zeta_name',
 	using 'filepath' as the handler for the zeta`,
 	Args: cobra.ExactArgs(2),
-	Run:  handler,
+	Run:  createHandler,
 }
