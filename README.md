@@ -9,6 +9,12 @@ idk its cool tho.
 > For WSL make sure to check the `Use the WSL 2 based engine` and `Enable integration with my default WSL distro`.
 - Pull the project
 - Create a venv. Activate it and install the requirements
+- Run this command
+```bash
+# Export the DOCKER_SOCKET variable in this shell instance
+# For global use (not recommended because of sudo), add it to your .bashrc file or similar
+export DOCKER_SOCKET=$(sudo find / -name docker.sock | grep docker.sock)
+```
 - Run the fastapi host application, which is a docker-proxy
 ```bash
 fastapi dev ./src/docker_proxy/main.py 
