@@ -63,7 +63,7 @@ func createHandler(cmd *cobra.Command, args []string) {
 		fmt.Printf("> status code: %v\n", resp.Status)
 		body, err := io.ReadAll(resp.Body)
 		if err == nil {
-			fmt.Printf("> body: %v\n", body)
+			fmt.Printf("> body: %v\n", string(body))
 		}
 		return
 	}
