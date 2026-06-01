@@ -17,13 +17,17 @@ public class RunnerController {
     }
 
     @GetMapping("runners")
-    public String getAllRunners() {
-        return new String();
+    public ResponseEntity<?> getAllRunners() {
+        return ResponseEntity.ok(
+                runnerService.getZetaRunners()
+        );
     }
 
-    @GetMapping("runners/{id}")
-    public String getRunner(@PathVariable UUID id) {
-        return new String();
+    @GetMapping("runners/{zeta}")
+    public ResponseEntity<?> getRunner(@PathVariable String zeta) {
+        return ResponseEntity.ok(
+            runnerService.getZetaRunner(zeta)
+        );
     }
 
     @PostMapping("runners")
@@ -32,5 +36,11 @@ public class RunnerController {
                 runnerService.spawnZeta(spawnZetaRequest.zetaName())
         );
     }
-    
+
+    @DeleteMapping("runners/{zeta}")
+    public ResponseEntity<?> spawnRunner(@PathVariable String zeta) {
+        runnerService.deleteZeta(zeta);
+        return ResponseEntity.noContent().build();
+    }
+
 }
