@@ -7,24 +7,27 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.zip.ZipFile;
 
+import com.schrodi.zeta_runner.config.RegistryConfig;
 import com.schrodi.zeta_runner.docker.DockerClient;
 import com.schrodi.zeta_runner.docker.DockerClientException;
-import com.schrodi.zeta_runner.dto.SpawnZetaResponse;
+import com.schrodi.zeta_runner.dto.ZetaRunnerResponse;
+import com.schrodi.zeta_runner.exceptions.ZetaNotDeployedException;
+import com.schrodi.zeta_runner.exceptions.ZetaResourceNotFoundException;
+import com.schrodi.zeta_runner.model.ZetaDRDeployment;
+import com.schrodi.zeta_runner.model.ZetaDRService;
+import com.schrodi.zeta_runner.model.ZetaDeploymentResourceType;
 import com.schrodi.zeta_runner.model.ZetaRunner;
 import com.schrodi.zeta_runner.utils.ZipUtils;
-import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1Deployment;
-import io.kubernetes.client.openapi.models.V1DeploymentList;
 import io.kubernetes.client.openapi.models.V1Service;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
@@ -33,38 +36,45 @@ import com.schrodi.zeta_runner.config.MinioConfig;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
 import io.minio.MinioClient;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class RunnerService {
     private static final String PREFIX = "zeta-";
-    private static final String BASE_IMAGE = "zeta-base-runner-python:0.0.1";
     private static final String NAMESPACE = "default";
     private static final Logger log = LoggerFactory.getLogger(RunnerService.class);
+
+    @Value("${app.runner.base-image}")
+    private String BASE_IMAGE;
+    @Value("${app.runner.version}")
+    private String RUNNER_VERSION;
+
     private final MinioConfig minioConfig;
     private final ResourceLoader resourceLoader;
     private final CoreV1Api coreV1Api;
     private final AppsV1Api appsV1Api;
-    private final ObjectMapper objectMapper;
+    private final DockerClient dockerClient;
+    private final RegistryConfig registryConfig;
 
     public RunnerService(
             MinioConfig minioConfig,
             ResourceLoader resourceLoader,
             CoreV1Api coreV1Api,
             AppsV1Api appsV1Api,
-            ObjectMapper objectMapper
+            DockerClient dockerClient,
+            RegistryConfig registryConfig
     ) {
         this.minioConfig = minioConfig;
         this.resourceLoader = resourceLoader;
         this.coreV1Api = coreV1Api;
         this.appsV1Api = appsV1Api;
-        this.objectMapper = objectMapper;
+        this.dockerClient = dockerClient;
+        this.registryConfig = registryConfig;
     }
 
     /**
      * Returns all deployed zeta runners
      */
-    public List<ZetaRunner> getZetaRunners() {
+    public List<ZetaRunnerResponse> getZetaRunners() {
         try {
             var deployments = appsV1Api.listNamespacedDeployment(NAMESPACE)
                     .execute()
@@ -79,7 +89,7 @@ public class RunnerService {
                     .filter(i -> i.getMetadata().getName().startsWith(PREFIX))
                     .toList();
 
-            List<ZetaRunner> runners = new ArrayList<>();
+            List<ZetaRunnerResponse> runners = new ArrayList<>();
             for (var deployment : deployments) {
                 String zeta = deployment.getMetadata().getName();
                 var service = services
@@ -88,13 +98,7 @@ public class RunnerService {
                         .findFirst()
                         .orElseThrow();
                 runners.add(
-                        new ZetaRunner(
-                                zeta,
-                                Map.of(
-                                        "deployment", objectMapper.readTree(deployment.toJson()),
-                                        "service", objectMapper.readTree(service.toJson())
-                                )
-                        )
+                        new ZetaRunnerResponse(zeta, ZetaDRDeployment.from(deployment), ZetaDRService.from(service))
                 );
             }
             return runners;
@@ -106,30 +110,25 @@ public class RunnerService {
     /**
      * Return dynamic details for the Zeta runner
      */
-    public ZetaRunner getZetaRunner(String zeta) {
+    public ZetaRunnerResponse getZetaRunner(String zeta) {
+        String zetaDRN = getZetaDeploymentResourceName(zeta);
         try {
             var deployment = appsV1Api.listNamespacedDeployment(NAMESPACE)
                     .execute()
                     .getItems()
                     .stream()
-                    .filter(i -> i.getMetadata().getName().equals(zeta))
+                    .filter(i -> i.getMetadata().getName().equals(zetaDRN))
                     .findFirst()
-                    .orElseThrow();
+                    .orElseThrow(() -> new ZetaResourceNotFoundException(zeta, ZetaDeploymentResourceType.DEPLOYMENT));
             var service = coreV1Api.listNamespacedService(NAMESPACE)
                     .execute()
                     .getItems()
                     .stream()
-                    .filter(i -> i.getMetadata().getName().equals(zeta))
+                    .filter(i -> i.getMetadata().getName().equals(zetaDRN))
                     .findFirst()
-                    .orElseThrow();
-            return new ZetaRunner(
-                zeta,
-                Map.of(
-                        "deployment", objectMapper.readTree(deployment.toJson()),
-                        "service", objectMapper.readTree(service.toJson())
-                )
-            );
-        } catch (Exception e) {
+                    .orElseThrow(() -> new ZetaResourceNotFoundException(zeta, ZetaDeploymentResourceType.SERVICE));
+            return new ZetaRunnerResponse(zeta, ZetaDRDeployment.from(deployment), ZetaDRService.from(service));
+        } catch (ApiException e) {
             throw new RuntimeException(e);
         }
     }
@@ -137,39 +136,12 @@ public class RunnerService {
     /**
      * Spawn a Zeta
      */
-    public SpawnZetaResponse spawnZeta(String zeta) {
-        String zetaWithPrefix = PREFIX + zeta;
-        // Check if the zeta has been deployed
-        try {
-            if (isZetaDeployed(zetaWithPrefix)) {
-                log.info("Zeta {} already deployed", zetaWithPrefix);
-                var deployment = appsV1Api.listNamespacedDeployment(NAMESPACE)
-                        .execute()
-                        .getItems()
-                        .stream()
-                        .filter(i -> i.getMetadata().getName().equals(zetaWithPrefix))
-                        .findFirst()
-                        .orElseThrow();
-                var service = coreV1Api.listNamespacedService(NAMESPACE)
-                        .execute()
-                        .getItems()
-                        .stream()
-                        .filter(i -> i.getMetadata().getName().equals(zetaWithPrefix))
-                        .findFirst()
-                        .orElseThrow();
-                return new SpawnZetaResponse(
-                        zeta,
-                        deployment.getMetadata().getName(),
-                        service.getMetadata().getName()
-                );
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public ZetaRunnerResponse spawnZeta(String zeta) {
+        String zetaDRN = getZetaDeploymentResourceName(zeta);
 
         // Retrieve the user's code from objectStorage
         MinioClient client = MinioClient.builder()
-            .endpoint(minioConfig.getEndpoint())
+            .endpoint(minioConfig.getServiceUrl())
             .credentials(minioConfig.getUsername(), minioConfig.getPassword())
             .build();
         GetObjectArgs getObjectArgs = GetObjectArgs.builder()
@@ -181,8 +153,8 @@ public class RunnerService {
         Path zetaTmpDirPath;
         Path zipPath;
         try (GetObjectResponse res = client.getObject(getObjectArgs)) {
-            zetaTmpDirPath = Files.createTempDirectory(zetaWithPrefix + "_");
-            zipPath = Files.createTempFile(zetaTmpDirPath, zetaWithPrefix + "_", ".zip");
+            zetaTmpDirPath = Files.createTempDirectory(zetaDRN + "_");
+            zipPath = Files.createTempFile(zetaTmpDirPath, zetaDRN + "_", ".zip");
             Files.write(zipPath, res.readAllBytes());
             log.info("Tmp zip path: {}", zipPath.toAbsolutePath());
         } catch (Exception e) {
@@ -199,49 +171,55 @@ public class RunnerService {
         // Add dockerfile
         try {
             Path dockerfilePath = Files.createFile(Path.of(zetaTmpDirPath.toString(), "Dockerfile"));
-            String dockerfileContent = getRunnerDockerfile(BASE_IMAGE);
-            Files.write(dockerfilePath, dockerfileContent.getBytes());
+            String dockerfile = getRunnerDockerfile();
+            Files.write(dockerfilePath, dockerfile.getBytes());
             log.info("Docker file path: {}", dockerfilePath.toAbsolutePath());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
         // Build the image
-        DockerClient dockerClient = new DockerClient();
-        String imageName = zetaWithPrefix + "-runner:0.0.1-" + Instant.now().toEpochMilli();
+        String image = String.format("%s-runner:%s-%d", zetaDRN, RUNNER_VERSION, Instant.now().toEpochMilli());
         try {
-            dockerClient.buildImage(imageName, zetaTmpDirPath);
+            dockerClient.buildImage(image, zetaTmpDirPath);
         } catch (DockerClientException e) {
             throw new RuntimeException(e);
         }
 
+        // Tag the image
+        String registryUrl = registryConfig.getServiceUrl();
+        String taggedImage = String.format("%s/%s",  registryUrl.replaceAll("http://", ""), image);
+        try {
+            dockerClient.tagImage(image, taggedImage);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         // Push to registry
-        /*try {
-            dockerClient.pushToRegistry(imageName);
+        try {
+            dockerClient.pushToRegistry(taggedImage);
         } catch (DockerClientException e) {
             throw new RuntimeException(e);
-        }*/
+        }
 
         // deploy the zeta
-        String deploymentName;
-        String serviceName;
+        V1Deployment deployment;
+        V1Service service;
         try {
             // Create deployment
-            String deploymentJson = getDeployment(zetaWithPrefix, imageName);
-            V1Deployment deployment = appsV1Api.createNamespacedDeployment(
+            String deploymentJson = getDeployment(zetaDRN, image);
+            deployment = appsV1Api.createNamespacedDeployment(
                     NAMESPACE,
                     V1Deployment.fromJson(deploymentJson)
             ).execute();
-            deploymentName = deployment.getMetadata().getName();
             log.info("Deployment created: {}", deployment.getMetadata().getName());
 
             // Create a service
-            String serviceJson = getService(zetaWithPrefix);
-            V1Service service = coreV1Api.createNamespacedService(
+            String serviceJson = getService(zetaDRN);
+            service = coreV1Api.createNamespacedService(
                     NAMESPACE,
                     V1Service.fromJson(serviceJson)
             ).execute();
-            serviceName = service.getMetadata().getName();
             log.info("Service created: {}", service.getMetadata().getName());
             log.info("> Service port: {}", service.getSpec().getPorts().get(0).getPort());
             log.info("> Service NodePort: {}", service.getSpec().getPorts().get(0).getNodePort());
@@ -249,28 +227,34 @@ public class RunnerService {
             throw new RuntimeException(e);
         }
 
-        return new SpawnZetaResponse(zeta, deploymentName, serviceName);
+        return new ZetaRunnerResponse(zeta, ZetaDRDeployment.from(deployment), ZetaDRService.from(service));
     }
 
-    private boolean isZetaDeployed(String zetaName) throws ApiException {
-        V1DeploymentList list = appsV1Api.listNamespacedDeployment(NAMESPACE).execute();
-        V1Deployment deployment = list.getItems()
-                .stream()
-                .filter(i -> i.getMetadata().getName().equals(zetaName))
-                .findFirst()
-                .orElse(null);
-        return deployment != null;
+    /**
+     * Delete Zeta runner deployment resources
+     */
+    public void deleteZetaRunner(String zeta) {
+        String zetaDRN = getZetaDeploymentResourceName(zeta);
+        try {
+            appsV1Api.deleteNamespacedDeployment(zetaDRN, NAMESPACE).execute();
+        } catch (ApiException e) {
+            log.error("Error deleting deployment '{}': {}", zetaDRN, e.getResponseBody());
+        }
+        try {
+            coreV1Api.deleteNamespacedService(zetaDRN, NAMESPACE).execute();
+        } catch (ApiException e) {
+            log.error("Error deleting Service '{}': {}", zetaDRN, e.getResponseBody());
+        }
     }
 
     /**
      * Returns the Zeta runner Dockerfile
-     * @param baseImage The base Zeta runner image
      */
-    private String getRunnerDockerfile(String baseImage) throws IOException {
+    private String getRunnerDockerfile() throws IOException {
         return resourceLoader
                 .getResource("classpath:runner-dockerfiles/python-dockerfile")
                 .getContentAsString(Charset.defaultCharset())
-                .replaceAll("%BASE_IMAGE%", baseImage);
+                .replaceAll("%BASE_IMAGE%", BASE_IMAGE);
     }
 
     /**
@@ -297,31 +281,12 @@ public class RunnerService {
                 .replaceAll("%ZETA_NAME%", zeta);
     }
 
-    public void deleteZeta(String zeta) {
-        try {
-            String zetaWithPrefix = PREFIX + zeta;
-            var deploymentName = appsV1Api.listNamespacedDeployment(NAMESPACE)
-                    .execute()
-                    .getItems()
-                    .stream()
-                    .filter(i -> i.getMetadata().getName().equals(zetaWithPrefix))
-                    .findFirst()
-                    .orElseThrow()
-                    .getMetadata()
-                    .getName();
-            var serviceName = coreV1Api.listNamespacedService(NAMESPACE)
-                    .execute()
-                    .getItems()
-                    .stream()
-                    .filter(i -> i.getMetadata().getName().equals(zetaWithPrefix))
-                    .findFirst()
-                    .orElseThrow()
-                    .getMetadata()
-                    .getName();
-            appsV1Api.deleteNamespacedDeployment(deploymentName, NAMESPACE).execute();
-            coreV1Api.deleteNamespacedService(serviceName, NAMESPACE).execute();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    /**
+     * Returns the deployment resource name for the specified zeta
+     * <p>
+     * This will simply be the zeta name prefixed with {@code PREFIX}
+     */
+    private String getZetaDeploymentResourceName(String zeta) {
+        return PREFIX + zeta;
     }
 }

@@ -1,9 +1,14 @@
 spring:
     application:
         name: zeta-runner
-
-object-storage:
-    endpoint: http://localhost:9000
-    username: minioadmin
-    password: minioadmin
-    bucket: zeta
+app:
+    object-storage:
+        serviceUrl: http://localhost:9000
+        username: minioadmin
+        password: minioadmin
+        bucket: zeta
+    registry:
+        serviceUrl: http://localhost:5000
+    runner:
+        version: 0.0.1
+        base-image: zeta-base-runner-python:0.0.1
