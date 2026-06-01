@@ -18,6 +18,7 @@ import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1Deployment;
 import io.kubernetes.client.openapi.models.V1DeploymentList;
 import io.kubernetes.client.openapi.models.V1Service;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
@@ -37,12 +38,18 @@ public class RunnerService {
     private static final Logger log = LoggerFactory.getLogger(RunnerService.class);
     private final MinioConfig minioConfig;
     private final ResourceLoader resourceLoader;
-    private final ApiClient apiClient;
+    private final CoreV1Api coreV1Api;
+    private final AppsV1Api appsV1Api;
 
-    public RunnerService(MinioConfig minioConfig, ResourceLoader resourceLoader, ApiClient apiClient) {
+    public RunnerService(
+            MinioConfig minioConfig,
+            ResourceLoader resourceLoader,
+            CoreV1Api coreV1Api,
+            AppsV1Api appsV1Api) {
         this.minioConfig = minioConfig;
         this.resourceLoader = resourceLoader;
-        this.apiClient = apiClient;
+        this.coreV1Api = coreV1Api;
+        this.appsV1Api = appsV1Api;
     }
 
     public SpawnZetaResponse spawnZeta(String zetaName) {
@@ -50,7 +57,6 @@ public class RunnerService {
         try {
             if (isZetaDeployed(zetaName)) {
                 log.info("Zeta {} already deployed", zetaName);
-                AppsV1Api appsV1Api = new AppsV1Api(apiClient);
                 var deployment = appsV1Api.listNamespacedDeployment(NAMESPACE)
                         .execute()
                         .getItems()
@@ -58,7 +64,6 @@ public class RunnerService {
                         .filter(i -> i.getMetadata().getName().equals(zetaName))
                         .findFirst()
                         .orElseThrow();
-                CoreV1Api coreV1Api = new CoreV1Api(apiClient);
                 var service = coreV1Api.listNamespacedService(NAMESPACE)
                         .execute()
                         .getItems()
@@ -108,10 +113,7 @@ public class RunnerService {
         // Add dockerfile
         try {
             Path dockerfilePath = Files.createFile(Path.of(zetaTmpDirPath.toString(), "Dockerfile"));
-            Resource resource = resourceLoader.getResource("classpath:runner-dockerfiles/python-dockerfile");
-            String dockerfileContent = resource
-                    .getContentAsString(Charset.defaultCharset())
-                    .replaceAll("%BASE_IMAGE%", BASE_IMAGE);
+            String dockerfileContent = getRunnerDockerfile(BASE_IMAGE);
             Files.write(dockerfilePath, dockerfileContent.getBytes());
             log.info("Docker file path: {}", dockerfilePath.toAbsolutePath());
         } catch (Exception e) {
@@ -139,12 +141,7 @@ public class RunnerService {
         String serviceName;
         try {
             // Create deployment
-            AppsV1Api appsV1Api = new AppsV1Api(apiClient);
-            String deploymentJson = resourceLoader
-                    .getResource("classpath:k8s/deployment.json")
-                    .getContentAsString(Charset.defaultCharset())
-                    .replaceAll("%ZETA_NAME%", zetaName)
-                    .replaceAll("%RUNNER_IMAGE%", imageName);
+            String deploymentJson = getDeployment(zetaName, imageName);
             V1Deployment deployment = appsV1Api.createNamespacedDeployment(
                     NAMESPACE,
                     V1Deployment.fromJson(deploymentJson)
@@ -153,11 +150,7 @@ public class RunnerService {
             log.info("Deployment created: {}", deployment.getMetadata().getName());
 
             // Create a service
-            CoreV1Api coreV1Api = new CoreV1Api(apiClient);
-            String serviceJson = resourceLoader
-                    .getResource("classpath:k8s/service.json")
-                    .getContentAsString(Charset.defaultCharset())
-                    .replaceAll("%ZETA_NAME%", zetaName);
+            String serviceJson = getService(zetaName);
             V1Service service = coreV1Api.createNamespacedService(
                     NAMESPACE,
                     V1Service.fromJson(serviceJson)
@@ -174,7 +167,6 @@ public class RunnerService {
     }
 
     private boolean isZetaDeployed(String zetaName) throws ApiException {
-        AppsV1Api appsV1Api = new AppsV1Api(apiClient);
         V1DeploymentList list = appsV1Api.listNamespacedDeployment(NAMESPACE).execute();
         V1Deployment deployment = list.getItems()
                 .stream()
@@ -182,5 +174,40 @@ public class RunnerService {
                 .findFirst()
                 .orElse(null);
         return deployment != null;
+    }
+
+    /**
+     * Returns the Zeta runner Dockerfile
+     * @param baseImage The base Zeta runner image
+     */
+    private String getRunnerDockerfile(String baseImage) throws IOException {
+        return resourceLoader
+                .getResource("classpath:runner-dockerfiles/python-dockerfile")
+                .getContentAsString(Charset.defaultCharset())
+                .replaceAll("%BASE_IMAGE%", baseImage);
+    }
+
+    /**
+     * Returns JSON deployment manifest
+     * @param zeta Zeta name
+     * @param image The runner's image
+     */
+    private String getDeployment(String zeta, String image) throws IOException {
+        return resourceLoader
+                .getResource("classpath:k8s/deployment.json")
+                .getContentAsString(Charset.defaultCharset())
+                .replaceAll("%ZETA_NAME%", zeta)
+                .replaceAll("%RUNNER_IMAGE%", image);
+    }
+
+    /**
+     * Returns JSON service manifest
+     * @param zeta Zeta name
+     */
+    private @NonNull String getService(String zeta) throws IOException {
+        return resourceLoader
+                .getResource("classpath:k8s/service.json")
+                .getContentAsString(Charset.defaultCharset())
+                .replaceAll("%ZETA_NAME%", zeta);
     }
 }
