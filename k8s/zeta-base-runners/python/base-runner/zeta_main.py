@@ -37,7 +37,7 @@ async def post(request: Request):
         logger.info("Handler data successfully validated on handler response schema")
         response = {
             "status": "SUCCESS",
-            "data": json.loads(data.body)
+            "data": data.body
         }
     except Exception as e:
         err = f"Error running the zeta: {e}"

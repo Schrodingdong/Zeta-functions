@@ -1,0 +1,9 @@
+spring:
+    application:
+        name: zeta-runner
+
+object-storage:
+    endpoint: http://localhost:9000
+    username: minioadmin
+    password: minioadmin
+    bucket: zeta
