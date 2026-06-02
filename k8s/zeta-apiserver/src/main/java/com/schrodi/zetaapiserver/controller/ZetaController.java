@@ -15,9 +15,9 @@ public class ZetaController {
         this.zetaService = zetaService;
     }
 
-    @GetMapping("zeta/{id}")
-    public ResponseEntity<ZetaResponse> getZeta(@PathVariable String id){
-        return ResponseEntity.ok(zetaService.getZeta(id));
+    @GetMapping("zeta/{name}")
+    public ResponseEntity<ZetaResponse> getZeta(@PathVariable String name){
+        return ResponseEntity.ok(zetaService.getZeta(name));
     }
 
     @PostMapping("zeta")

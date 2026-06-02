@@ -37,10 +37,9 @@ public class ZetaService {
         this.workQueue = workQueue;
     }
 
-    public ZetaResponse getZeta(String id) {
-        UUID uuid = UUID.fromString(id);
-        Zeta zeta = zetaRepository.findById(uuid)
-                .orElseThrow(() -> new ZetaNotFoundException(String.format("Zeta of id %s not found", id)));
+    public ZetaResponse getZeta(String name) {
+        Zeta zeta = zetaRepository.findByZetaName(name)
+                .orElseThrow(() -> new ZetaNotFoundException(String.format("Zeta '%s' not found", name)));
         return new ZetaResponse(zeta.getZetaName(), zeta.getZetaStatus());
     }
 
