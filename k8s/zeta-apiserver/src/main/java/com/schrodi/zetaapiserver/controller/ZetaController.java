@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 public class ZetaController {
     private ZetaService zetaService;
@@ -15,18 +17,23 @@ public class ZetaController {
         this.zetaService = zetaService;
     }
 
-    @DeleteMapping("zeta/{id}")
+    @DeleteMapping("zetas/{id}")
     public ResponseEntity<Void> deleteZeta(@PathVariable String id){
         zetaService.deleteZeta(id);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("zeta/{id}")
+    @GetMapping("zetas")
+    public ResponseEntity<List<ZetaResponse>> getZetas(){
+        return ResponseEntity.ok(zetaService.getAllZetas());
+    }
+
+    @GetMapping("zetas/{id}")
     public ResponseEntity<ZetaResponse> getZeta(@PathVariable String id){
         return ResponseEntity.ok(zetaService.getZeta(id));
     }
 
-    @PostMapping("zeta")
+    @PostMapping("zetas")
     public ResponseEntity<ZetaResponse> createZeta(
             @RequestParam("file") MultipartFile file,
             @RequestParam("name") String zetaName

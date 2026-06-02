@@ -4,7 +4,6 @@ import com.schrodi.zetaapiserver.config.MinioConfig;
 import com.schrodi.zetaapiserver.dto.ZetaProcessingStatusResponse;
 import com.schrodi.zetaapiserver.dto.ZetaRequest;
 import com.schrodi.zetaapiserver.dto.ZetaResponse;
-import com.schrodi.zetaapiserver.exception.ZetaAlreadyDeployedException;
 import com.schrodi.zetaapiserver.exception.ZetaDeploymentException;
 import com.schrodi.zetaapiserver.exception.ZetaNotFoundException;
 import com.schrodi.zetaapiserver.exception.ZetaResourceNotFoundException;
@@ -17,7 +16,6 @@ import io.minio.UploadObjectArgs;
 import io.minio.errors.MinioException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
@@ -26,7 +24,9 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.StreamSupport;
 
 @Service
 public class ZetaService {
@@ -78,6 +78,16 @@ public class ZetaService {
         // Delete from RDBMS
         zeta.setZetaStatus(zetaProcessingStatus.status());
         zetaRepository.save(zeta);
+    }
+
+    /**
+     * Retrieve All Zetas that aren't in DELETED status
+     */
+    public List<ZetaResponse> getAllZetas() {
+        return zetaRepository.findByZetaStatusNot(ZetaStatus.DELETED)
+                .stream()
+                .map(zeta -> new ZetaResponse(zeta.getId(), zeta.getName(), zeta.getZetaStatus()))
+                .toList();
     }
 
     /**
