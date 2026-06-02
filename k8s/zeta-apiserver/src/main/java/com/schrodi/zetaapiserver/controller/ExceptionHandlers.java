@@ -19,7 +19,7 @@ public class ExceptionHandlers {
     @ExceptionHandler(ZetaAlreadyDeployedException.class)
     public ResponseEntity<ApiErrorResponse> handleZetaAlreadyDeployedException(ZetaAlreadyDeployedException e){
         log.error(e.getMessage(), e);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 new ApiErrorResponse(e.getMessage(), LocalDateTime.now())
         );
     }
@@ -28,6 +28,14 @@ public class ExceptionHandlers {
     public ResponseEntity<ApiErrorResponse> handleZetaNotFoundException(ZetaNotFoundException e){
         log.error(e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                new ApiErrorResponse(e.getMessage(), LocalDateTime.now())
+        );
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgumentException(IllegalArgumentException e){
+        log.error(e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 new ApiErrorResponse(e.getMessage(), LocalDateTime.now())
         );
     }

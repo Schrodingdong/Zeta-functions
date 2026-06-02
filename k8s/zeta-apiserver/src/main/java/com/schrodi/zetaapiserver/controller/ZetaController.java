@@ -15,13 +15,19 @@ public class ZetaController {
         this.zetaService = zetaService;
     }
 
-    @GetMapping("zeta/{name}")
-    public ResponseEntity<ZetaResponse> getZeta(@PathVariable String name){
-        return ResponseEntity.ok(zetaService.getZeta(name));
+    @DeleteMapping("zeta/{id}")
+    public ResponseEntity<Void> deleteZeta(@PathVariable String id){
+        zetaService.deleteZeta(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("zeta/{id}")
+    public ResponseEntity<ZetaResponse> getZeta(@PathVariable String id){
+        return ResponseEntity.ok(zetaService.getZeta(id));
     }
 
     @PostMapping("zeta")
-    public ResponseEntity<?> createZeta(
+    public ResponseEntity<ZetaResponse> createZeta(
             @RequestParam("file") MultipartFile file,
             @RequestParam("name") String zetaName
     ) {

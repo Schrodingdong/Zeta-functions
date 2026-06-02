@@ -2,7 +2,10 @@ package com.schrodi.zetaapiserver.dto;
 
 import com.schrodi.zetaapiserver.model.ZetaStatus;
 
+import java.util.UUID;
+
 public record ZetaResponse(
-    String zetaName,
-    ZetaStatus status
+        UUID id,
+        String name,
+        ZetaStatus status
 ) { }

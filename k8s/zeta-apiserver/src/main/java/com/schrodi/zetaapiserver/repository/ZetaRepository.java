@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface ZetaRepository extends CrudRepository<Zeta, UUID> {
-    Optional<Zeta> findByZetaName(String zetaName);
+    Optional<Zeta> findByName(String name);
 }

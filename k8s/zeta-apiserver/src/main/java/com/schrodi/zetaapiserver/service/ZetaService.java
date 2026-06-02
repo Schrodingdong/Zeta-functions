@@ -1,25 +1,32 @@
 package com.schrodi.zetaapiserver.service;
 
 import com.schrodi.zetaapiserver.config.MinioConfig;
-import com.schrodi.zetaapiserver.dto.DeploymentTask;
+import com.schrodi.zetaapiserver.dto.ZetaProcessingStatusResponse;
 import com.schrodi.zetaapiserver.dto.ZetaRequest;
 import com.schrodi.zetaapiserver.dto.ZetaResponse;
 import com.schrodi.zetaapiserver.exception.ZetaAlreadyDeployedException;
+import com.schrodi.zetaapiserver.exception.ZetaDeploymentException;
 import com.schrodi.zetaapiserver.exception.ZetaNotFoundException;
+import com.schrodi.zetaapiserver.exception.ZetaResourceNotFoundException;
 import com.schrodi.zetaapiserver.model.Zeta;
 import com.schrodi.zetaapiserver.model.ZetaStatus;
 import com.schrodi.zetaapiserver.repository.ZetaRepository;
 import io.minio.MinioClient;
+import io.minio.RemoveObjectArgs;
 import io.minio.UploadObjectArgs;
+import io.minio.errors.MinioException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class ZetaService {
@@ -28,74 +35,158 @@ public class ZetaService {
     private final MinioClient minioClient;
     private final MinioConfig minioConfig;
     private final ZetaRepository zetaRepository;
+    private final ObjectMapper mapper;
 
     private final RabbitTemplate template;
-    private final Queue queue;
+    private final Queue zetaDeploymentQueue;
+    private final Queue zetaDeleteQueue;
 
 
     public ZetaService(
             ZetaRepository zetaRepository,
             MinioClient minioClient,
             MinioConfig minioConfig,
+            ObjectMapper mapper,
             RabbitTemplate template,
-            Queue queue
+            Queue zetaDeploymentQueue,
+            Queue zetaDeleteQueue
     ) {
         this.minioClient = minioClient;
         this.minioConfig = minioConfig;
         this.zetaRepository = zetaRepository;
+        this.mapper = mapper;
         this.template = template;
-        this.queue = queue;
+        this.zetaDeploymentQueue = zetaDeploymentQueue;
+        this.zetaDeleteQueue = zetaDeleteQueue;
     }
 
-    public ZetaResponse getZeta(String name) {
-        Zeta zeta = zetaRepository.findByZetaName(name)
-                .orElseThrow(() -> new ZetaNotFoundException(String.format("Zeta '%s' not found", name)));
-        return new ZetaResponse(zeta.getZetaName(), zeta.getZetaStatus());
+    /**
+     * Delete zeta
+     */
+    public void deleteZeta(String id) {
+        Zeta zeta = zetaRepository.findById(UUID.fromString(id))
+                .orElseThrow(() -> new ZetaNotFoundException(String.format("Zeta '%s' not found", id)));
+
+        // Delete from cluster
+        var zetaProcessingStatus = sendDeleteRequest(zeta.getId().toString());
+        // Delete from ObjectStorage
+        try {
+            deleteZetaObject(zeta);
+        } catch (MinioException e) {
+            throw new ZetaResourceNotFoundException("Unable to remove ZIP from MINIO", e);
+        }
+        // Delete from RDBMS
+        zeta.setZetaStatus(zetaProcessingStatus.status());
+        zetaRepository.save(zeta);
     }
 
+    /**
+     * Retrieve Zeta
+     */
+    public ZetaResponse getZeta(String id) {
+        Zeta zeta = zetaRepository.findById(UUID.fromString(id))
+                .orElseThrow(() -> new ZetaNotFoundException(String.format("Zeta '%s' not found", id)));
+        return new ZetaResponse(zeta.getId(), zeta.getName(), zeta.getZetaStatus());
+    }
+
+    /**
+     * Deploy a Zeta function
+     * <p>
+     * A deployment would mean:
+     * <li>Saving metadata into RDBMS</li>
+     * <li>Saving user's ZIP into ObjectStorage</li>
+     * <li>Deploying k8s resources by the Zeta Runner</li>
+     */
     public ZetaResponse deployZeta(ZetaRequest zetaRequest) {
-        // Check if it is already deployed
-        Optional<Zeta> zOpt = zetaRepository.findByZetaName(zetaRequest.name());
-        if (zOpt.isPresent())
-            throw new ZetaAlreadyDeployedException(zetaRequest.name());
-
         // Save in DB
         Zeta zeta = new Zeta();
+        zeta.setName(zetaRequest.name());
         zeta.setZetaStatus(ZetaStatus.PENDING);
-        zeta.setZetaName(zetaRequest.name());
-
         zeta = zetaRepository.save(zeta);
 
         // Save the file in tmp
-        Path tmpDir;
-        Path tmpZipPath;
+        String tmpDir = PREFIX + zeta.getId() + "_";
+        Path tmpDirP;
+        String tmpZip = zeta.getId() + "_";
+        Path tmpZipP;
         try {
-            tmpDir = Files.createTempDirectory(PREFIX + zetaRequest.name() + "_");
-            tmpZipPath = Files.createTempFile(tmpDir, zetaRequest.name() + "_", ".zip");
-            Files.write(tmpZipPath, zetaRequest.file().getBytes());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            tmpDirP = Files.createTempDirectory(tmpDir);
+            tmpZipP = Files.createTempFile(tmpDirP, tmpZip, ".zip");
+            byte[] zipContent = zetaRequest.file().getBytes();
+            Files.write(tmpZipP, zipContent);
+        } catch (IOException e) {
+            throw new ZetaDeploymentException(String.format("Unable to deploy Zeta '%s'", zeta.getId()), e);
         }
-
         // Upload
+        String zetaObject = zeta.getId() + ".zip";
         try {
             UploadObjectArgs uploadObjectArgs = UploadObjectArgs.builder()
                     .bucket(minioConfig.getBucket())
-                    .object(zetaRequest.name() + ".zip")
-                    .filename(tmpZipPath.toString())
+                    .object(zetaObject)
+                    .filename(tmpZipP.toString())
                     .build();
             minioClient.uploadObject(uploadObjectArgs);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new ZetaDeploymentException(String.format("Unable to deploy Zeta '%s'", zeta.getId()), e);
         }
-
-        // Update status to deploying
+        // Set Zeta Zip object name && Update status to deploying
+        zeta.setZipName(zetaObject);
+        zeta.setBucket(minioConfig.getBucket());
         zeta.setZetaStatus(ZetaStatus.DEPLOYING);
         zeta = zetaRepository.save(zeta);
 
-        // send to work queue
-        template.convertAndSend(queue.getName(), zeta.getZetaName());
+        // Send deployment request to runner
+        var zetaProcessingStatus = sendDeploymentRequest(zeta.getId().toString());
+        if (zetaProcessingStatus.status() == ZetaStatus.ERROR) {
+            // Undo minio
+            try {
+                deleteZetaObject(zeta);
+            } catch (MinioException e) {
+                throw new ZetaResourceNotFoundException(
+                        String.format("Unable to remove ZIP for '%s' from MINIO", zeta.getId()),
+                        e
+                );
+            }
+            // Undo k8s
+            sendDeleteRequest(zeta.getId().toString());
+            throw new ZetaDeploymentException(String.format("Unable to deploy Zeta '%s'", zeta.getId()));
+        }
+        zeta.setZetaStatus(zetaProcessingStatus.status());
+        zeta = zetaRepository.save(zeta);
 
-        return new ZetaResponse(zeta.getZetaName(), zeta.getZetaStatus());
+        return new ZetaResponse(zeta.getId(), zeta.getName(), zeta.getZetaStatus());
+    }
+
+    /**
+     * Sends a delete request to the zeta runner
+     * @param id Zeta id
+     * @return Zeta status post-deletion
+     */
+    private ZetaProcessingStatusResponse sendDeleteRequest(String id) {
+        var res = (String) template.convertSendAndReceive(zetaDeleteQueue.getName(), id);
+        return mapper.readValue(res, ZetaProcessingStatusResponse.class);
+    }
+
+    /**
+     * Sends a deployment request to the zeta runner
+     * @param id Zeta id
+     * @return Zeta status post-deployment
+     */
+    private ZetaProcessingStatusResponse sendDeploymentRequest(String id) {
+        var res = (String) template.convertSendAndReceive(zetaDeploymentQueue.getName(), id);
+        return mapper.readValue(res, ZetaProcessingStatusResponse.class);
+    }
+
+    /**
+     * Delete Zeta ZIP from object storage
+     * @param zeta
+     * @throws MinioException
+     */
+    private void deleteZetaObject(Zeta zeta) throws MinioException {
+        var removeObjectArgs = RemoveObjectArgs.builder()
+                .bucket(zeta.getBucket())
+                .object(zeta.getZipName())
+                .build();
+        minioClient.removeObject(removeObjectArgs);
     }
 }

@@ -6,7 +6,9 @@ spring:
     port: 5672
     username: admin
     password: admin
-    queue: zeta.deployments
+    queues:
+      deployment: zeta.deployments
+      delete: zeta.delete
   datasource:
     url: jdbc:postgresql://localhost:5432/zeta
     username: zeta

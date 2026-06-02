@@ -7,9 +7,13 @@ import java.util.UUID;
 @Entity
 public class Zeta {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    private String zetaName;
+    private String name;
+    @Column(nullable = true)
+    private String zipName;
+    @Column(nullable = true)
+    private String bucket;
     @Enumerated(EnumType.STRING)
     private ZetaStatus zetaStatus;
 
@@ -23,12 +27,12 @@ public class Zeta {
         this.id = id;
     }
 
-    public String getZetaName() {
-        return zetaName;
+    public String getName() {
+        return name;
     }
 
-    public void setZetaName(String zetaName) {
-        this.zetaName = zetaName;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public ZetaStatus getZetaStatus() {
@@ -37,5 +41,21 @@ public class Zeta {
 
     public void setZetaStatus(ZetaStatus zetaStatus) {
         this.zetaStatus = zetaStatus;
+    }
+
+    public String getZipName() {
+        return zipName;
+    }
+
+    public void setZipName(String zipName) {
+        this.zipName = zipName;
+    }
+
+    public String getBucket() {
+        return bucket;
+    }
+
+    public void setBucket(String bucket) {
+        this.bucket = bucket;
     }
 }
