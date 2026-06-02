@@ -2,12 +2,11 @@
   "apiVersion": "apps/v1",
   "kind": "Deployment",
   "metadata": {
-    "name": "%ZETA_NAME%"
+    "name": "%ZETA_NAME%",
+    "namespace": "%ZETA_NAMESPACE%"
   },
   "spec": {
-    "progressDeadlineSeconds": 600,
     "replicas": 1,
-    "revisionHistoryLimit": 10,
     "selector": {
       "matchLabels": {
         "app": "%ZETA_NAME%"
@@ -30,7 +29,17 @@
                 "containerPort": 6969,
                 "protocol": "TCP"
               }
-            ]
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "25m",
+                "memory": "100Mi"
+              },
+              "limits": {
+                "cpu": "1000m",
+                "memory": "512Mi"
+              }
+            }
           }
         ]
       }

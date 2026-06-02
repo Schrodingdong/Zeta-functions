@@ -5,5 +5,6 @@ package com.schrodi.zeta_runner.model;
  */
 public enum ZetaDeploymentResourceType {
     DEPLOYMENT,
-    SERVICE
+    SERVICE,
+    HPA
 }

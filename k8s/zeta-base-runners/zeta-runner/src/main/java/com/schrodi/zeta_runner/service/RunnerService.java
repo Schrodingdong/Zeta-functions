@@ -14,16 +14,15 @@ import com.schrodi.zeta_runner.docker.DockerClientException;
 import com.schrodi.zeta_runner.dto.ZetaRunnerResponse;
 import com.schrodi.zeta_runner.exceptions.ZetaNotDeployedException;
 import com.schrodi.zeta_runner.exceptions.ZetaResourceNotFoundException;
-import com.schrodi.zeta_runner.model.ZetaDRDeployment;
-import com.schrodi.zeta_runner.model.ZetaDRService;
-import com.schrodi.zeta_runner.model.ZetaDeploymentResourceType;
-import com.schrodi.zeta_runner.model.ZetaRunner;
+import com.schrodi.zeta_runner.model.*;
 import com.schrodi.zeta_runner.utils.ZipUtils;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
+import io.kubernetes.client.openapi.apis.AutoscalingV2Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1Deployment;
 import io.kubernetes.client.openapi.models.V1Service;
+import io.kubernetes.client.openapi.models.V2HorizontalPodAutoscaler;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +51,7 @@ public class RunnerService {
     private final ResourceLoader resourceLoader;
     private final CoreV1Api coreV1Api;
     private final AppsV1Api appsV1Api;
+    private final AutoscalingV2Api autoscalingV2Api;
     private final DockerClient dockerClient;
     private final RegistryConfig registryConfig;
 
@@ -60,6 +60,7 @@ public class RunnerService {
             ResourceLoader resourceLoader,
             CoreV1Api coreV1Api,
             AppsV1Api appsV1Api,
+            AutoscalingV2Api autoscalingV2Api,
             DockerClient dockerClient,
             RegistryConfig registryConfig
     ) {
@@ -67,6 +68,7 @@ public class RunnerService {
         this.resourceLoader = resourceLoader;
         this.coreV1Api = coreV1Api;
         this.appsV1Api = appsV1Api;
+        this.autoscalingV2Api = autoscalingV2Api;
         this.dockerClient = dockerClient;
         this.registryConfig = registryConfig;
     }
@@ -88,6 +90,12 @@ public class RunnerService {
                     .stream()
                     .filter(i -> i.getMetadata().getName().startsWith(PREFIX))
                     .toList();
+            var hpas = autoscalingV2Api.listNamespacedHorizontalPodAutoscaler(NAMESPACE)
+                    .execute()
+                    .getItems()
+                    .stream()
+                    .filter(i -> i.getMetadata().getName().startsWith(PREFIX))
+                    .toList();
 
             List<ZetaRunnerResponse> runners = new ArrayList<>();
             for (var deployment : deployments) {
@@ -97,8 +105,18 @@ public class RunnerService {
                         .filter(i -> i.getMetadata().getName().equals(zeta))
                         .findFirst()
                         .orElseThrow();
+                var hpa = hpas
+                        .stream()
+                        .filter(i -> i.getMetadata().getName().equals(zeta))
+                        .findFirst()
+                        .orElseThrow();
                 runners.add(
-                        new ZetaRunnerResponse(zeta, ZetaDRDeployment.from(deployment), ZetaDRService.from(service))
+                        new ZetaRunnerResponse(
+                                zeta,
+                                ZetaDRDeployment.from(deployment),
+                                ZetaDRService.from(service),
+                                ZetaDRHPA.from(hpa)
+                        )
                 );
             }
             return runners;
@@ -127,7 +145,19 @@ public class RunnerService {
                     .filter(i -> i.getMetadata().getName().equals(zetaDRN))
                     .findFirst()
                     .orElseThrow(() -> new ZetaResourceNotFoundException(zeta, ZetaDeploymentResourceType.SERVICE));
-            return new ZetaRunnerResponse(zeta, ZetaDRDeployment.from(deployment), ZetaDRService.from(service));
+            var hpa = autoscalingV2Api.listNamespacedHorizontalPodAutoscaler(NAMESPACE)
+                    .execute()
+                    .getItems()
+                    .stream()
+                    .filter(i -> i.getMetadata().getName().equals(zetaDRN))
+                    .findFirst()
+                    .orElseThrow(() -> new ZetaResourceNotFoundException(zeta, ZetaDeploymentResourceType.HPA));
+            return new ZetaRunnerResponse(
+                    zeta,
+                    ZetaDRDeployment.from(deployment),
+                    ZetaDRService.from(service),
+                    ZetaDRHPA.from(hpa)
+            );
         } catch (ApiException e) {
             throw new RuntimeException(e);
         }
@@ -205,6 +235,7 @@ public class RunnerService {
         // deploy the zeta
         V1Deployment deployment;
         V1Service service;
+        V2HorizontalPodAutoscaler hpa;
         try {
             // Create deployment
             String deploymentJson = getDeployment(zetaDRN, image);
@@ -213,6 +244,14 @@ public class RunnerService {
                     V1Deployment.fromJson(deploymentJson)
             ).execute();
             log.info("Deployment created: {}", deployment.getMetadata().getName());
+
+            // Create HPA
+            String hpaJson = getHpa(zetaDRN);
+            hpa = autoscalingV2Api.createNamespacedHorizontalPodAutoscaler(
+                    NAMESPACE,
+                    V2HorizontalPodAutoscaler.fromJson(hpaJson)
+            ).execute();
+            log.info("HPA created: {}", hpa.getMetadata().getName());
 
             // Create a service
             String serviceJson = getService(zetaDRN);
@@ -227,7 +266,12 @@ public class RunnerService {
             throw new RuntimeException(e);
         }
 
-        return new ZetaRunnerResponse(zeta, ZetaDRDeployment.from(deployment), ZetaDRService.from(service));
+        return new ZetaRunnerResponse(
+                zeta,
+                ZetaDRDeployment.from(deployment),
+                ZetaDRService.from(service),
+                ZetaDRHPA.from(hpa)
+        );
     }
 
     /**
@@ -239,6 +283,11 @@ public class RunnerService {
             appsV1Api.deleteNamespacedDeployment(zetaDRN, NAMESPACE).execute();
         } catch (ApiException e) {
             log.error("Error deleting deployment '{}': {}", zetaDRN, e.getResponseBody());
+        }
+        try {
+            autoscalingV2Api.deleteNamespacedHorizontalPodAutoscaler(zetaDRN, NAMESPACE).execute();
+        } catch (ApiException e) {
+            log.error("Error deleting HPA '{}': {}", zetaDRN, e.getResponseBody());
         }
         try {
             coreV1Api.deleteNamespacedService(zetaDRN, NAMESPACE).execute();
@@ -266,8 +315,21 @@ public class RunnerService {
         return resourceLoader
                 .getResource("classpath:k8s/deployment.json")
                 .getContentAsString(Charset.defaultCharset())
+                .replaceAll("%ZETA_NAMESPACE%", NAMESPACE)
                 .replaceAll("%ZETA_NAME%", zeta)
                 .replaceAll("%RUNNER_IMAGE%", image);
+    }
+
+    /**
+     * Returns JSON HPA manifest
+     * @param zeta Zeta name
+     */
+    private String getHpa(String zeta) throws IOException {
+        return resourceLoader
+                .getResource("classpath:k8s/hpa.json")
+                .getContentAsString(Charset.defaultCharset())
+                .replaceAll("%ZETA_NAMESPACE%", NAMESPACE)
+                .replaceAll("%ZETA_NAME%", zeta);
     }
 
     /**
@@ -278,6 +340,7 @@ public class RunnerService {
         return resourceLoader
                 .getResource("classpath:k8s/service.json")
                 .getContentAsString(Charset.defaultCharset())
+                .replaceAll("%ZETA_NAMESPACE%", NAMESPACE)
                 .replaceAll("%ZETA_NAME%", zeta);
     }
 

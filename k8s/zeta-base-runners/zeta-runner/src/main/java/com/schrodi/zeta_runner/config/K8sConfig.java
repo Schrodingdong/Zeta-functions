@@ -2,6 +2,7 @@ package com.schrodi.zeta_runner.config;
 
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
+import io.kubernetes.client.openapi.apis.AutoscalingV2Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.util.Config;
 import org.springframework.context.annotation.Bean;
@@ -28,5 +29,10 @@ public class K8sConfig {
     @Bean
     public AppsV1Api appsV1Api(ApiClient apiClient) {
         return new AppsV1Api(apiClient);
+    }
+
+    @Bean
+    public AutoscalingV2Api autoscalingV2Api(ApiClient apiClient) {
+        return new AutoscalingV2Api(apiClient);
     }
 }

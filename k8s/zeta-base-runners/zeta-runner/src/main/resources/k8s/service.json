@@ -2,7 +2,8 @@
   "apiVersion": "v1",
   "kind": "Service",
   "metadata": {
-    "name": "%ZETA_NAME%"
+    "name": "%ZETA_NAME%",
+    "namespace": "%ZETA_NAMESPACE%"
   },
   "spec": {
     "selector": {
