@@ -1,7 +1,10 @@
 package com.schrodi.zetaapiserver.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -10,12 +13,16 @@ public class Zeta {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private String name;
-    @Column(nullable = true)
     private String zipName;
-    @Column(nullable = true)
     private String bucket;
     @Enumerated(EnumType.STRING)
     private ZetaStatus zetaStatus;
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
     public Zeta() { }
 
@@ -57,5 +64,21 @@ public class Zeta {
 
     public void setBucket(String bucket) {
         this.bucket = bucket;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

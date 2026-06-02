@@ -86,7 +86,7 @@ public class ZetaService {
     public List<ZetaResponse> getAllZetas() {
         return zetaRepository.findByZetaStatusNot(ZetaStatus.DELETED)
                 .stream()
-                .map(zeta -> new ZetaResponse(zeta.getId(), zeta.getName(), zeta.getZetaStatus()))
+                .map(ZetaResponse::new)
                 .toList();
     }
 
@@ -96,7 +96,7 @@ public class ZetaService {
     public ZetaResponse getZeta(String id) {
         Zeta zeta = zetaRepository.findById(UUID.fromString(id))
                 .orElseThrow(() -> new ZetaNotFoundException(String.format("Zeta '%s' not found", id)));
-        return new ZetaResponse(zeta.getId(), zeta.getName(), zeta.getZetaStatus());
+        return new ZetaResponse(zeta);
     }
 
     /**
@@ -164,7 +164,7 @@ public class ZetaService {
         zeta.setZetaStatus(zetaProcessingStatus.status());
         zeta = zetaRepository.save(zeta);
 
-        return new ZetaResponse(zeta.getId(), zeta.getName(), zeta.getZetaStatus());
+        return new ZetaResponse(zeta);
     }
 
     /**
