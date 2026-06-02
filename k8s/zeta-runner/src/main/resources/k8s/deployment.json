@@ -1,0 +1,48 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "%ZETA_NAME%",
+    "namespace": "%ZETA_NAMESPACE%"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "%ZETA_NAME%"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "%ZETA_NAME%"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "%RUNNER_IMAGE%",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "%ZETA_NAME%",
+            "ports": [
+              {
+                "containerPort": 6969,
+                "protocol": "TCP"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "25m",
+                "memory": "100Mi"
+              },
+              "limits": {
+                "cpu": "1000m",
+                "memory": "512Mi"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

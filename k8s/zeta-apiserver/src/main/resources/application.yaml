@@ -26,6 +26,3 @@ app:
     username: minioadmin
     password: minioadmin
     bucket: zeta
-
-server:
-  port: 8888

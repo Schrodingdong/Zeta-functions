@@ -1,5 +1,0 @@
-FROM %BASE_IMAGE%
-WORKDIR /zeta
-RUN mkdir user
-COPY . ./user
-RUN touch ./user/__init__.py

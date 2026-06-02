@@ -50,7 +50,7 @@ services:
     image: adminer
     restart: always
     ports:
-      - 8080:8080
+      - "9876:8080"
 
 volumes:
   minio:
