@@ -13,12 +13,13 @@ import io.minio.MinioClient;
 import io.minio.UploadObjectArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class ZetaService {
@@ -27,14 +28,23 @@ public class ZetaService {
     private final MinioClient minioClient;
     private final MinioConfig minioConfig;
     private final ZetaRepository zetaRepository;
-    private final WorkQueue workQueue;
+
+    private final RabbitTemplate template;
+    private final Queue queue;
 
 
-    public ZetaService(ZetaRepository zetaRepository, MinioClient minioClient,  MinioConfig minioConfig, WorkQueue workQueue) {
+    public ZetaService(
+            ZetaRepository zetaRepository,
+            MinioClient minioClient,
+            MinioConfig minioConfig,
+            RabbitTemplate template,
+            Queue queue
+    ) {
         this.minioClient = minioClient;
         this.minioConfig = minioConfig;
         this.zetaRepository = zetaRepository;
-        this.workQueue = workQueue;
+        this.template = template;
+        this.queue = queue;
     }
 
     public ZetaResponse getZeta(String name) {
@@ -84,7 +94,7 @@ public class ZetaService {
         zeta = zetaRepository.save(zeta);
 
         // send to work queue
-        workQueue.send(new DeploymentTask(zeta.getZetaName()));
+        template.convertAndSend(queue.getName(), zeta.getZetaName());
 
         return new ZetaResponse(zeta.getZetaName(), zeta.getZetaStatus());
     }

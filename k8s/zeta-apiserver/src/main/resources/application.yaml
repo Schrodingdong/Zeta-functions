@@ -1,6 +1,12 @@
 spring:
   application:
     name: zeta-apiserver
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin
+    queue: zeta.deployments
   datasource:
     url: jdbc:postgresql://localhost:5432/zeta
     username: zeta
@@ -13,10 +19,6 @@ spring:
     show-sql: true
 
 app:
-  rabbitmq:
-    host: localhost
-    username: admin
-    password: admin
   object-storage:
     serviceUrl: http://localhost:9000
     username: minioadmin

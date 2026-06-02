@@ -1,6 +1,14 @@
 spring:
     application:
         name: zeta-runner
+    rabbitmq:
+        host: localhost
+        port: 5672
+        username: admin
+        password: admin
+        queue: zeta.deployments
+server:
+    port: 9999
 app:
     object-storage:
         serviceUrl: http://localhost:9000
