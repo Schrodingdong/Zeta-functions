@@ -4,21 +4,26 @@ import com.schrodi.zetaapiserver.config.MinioConfig;
 import com.schrodi.zetaapiserver.dto.DeploymentTask;
 import com.schrodi.zetaapiserver.dto.ZetaRequest;
 import com.schrodi.zetaapiserver.dto.ZetaResponse;
+import com.schrodi.zetaapiserver.exception.ZetaAlreadyDeployedException;
 import com.schrodi.zetaapiserver.exception.ZetaNotFoundException;
 import com.schrodi.zetaapiserver.model.Zeta;
 import com.schrodi.zetaapiserver.model.ZetaStatus;
 import com.schrodi.zetaapiserver.repository.ZetaRepository;
 import io.minio.MinioClient;
 import io.minio.UploadObjectArgs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class ZetaService {
     private static final String PREFIX = "zeta-";
+    private static final Logger log = LoggerFactory.getLogger(ZetaService.class);
     private final MinioClient minioClient;
     private final MinioConfig minioConfig;
     private final ZetaRepository zetaRepository;
@@ -40,6 +45,11 @@ public class ZetaService {
     }
 
     public ZetaResponse deployZeta(ZetaRequest zetaRequest) {
+        // Check if it is already deployed
+        Optional<Zeta> zOpt = zetaRepository.findByZetaName(zetaRequest.name());
+        if (zOpt.isPresent())
+            throw new ZetaAlreadyDeployedException(zetaRequest.name());
+
         // Save in DB
         Zeta zeta = new Zeta();
         zeta.setZetaStatus(ZetaStatus.PENDING);
@@ -74,7 +84,7 @@ public class ZetaService {
         zeta.setZetaStatus(ZetaStatus.DEPLOYING);
         zeta = zetaRepository.save(zeta);
 
-        // send to workqueueu
+        // send to work queue
         workQueue.send(new DeploymentTask(zeta.getZetaName()));
 
         return new ZetaResponse(zeta.getZetaName(), zeta.getZetaStatus());
