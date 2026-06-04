@@ -1,0 +1,24 @@
+spring:
+    application:
+        name: zeta-runner
+    rabbitmq:
+        host: localhost
+        port: 5672
+        username: admin
+        password: admin
+        queues:
+            deployment: zeta.deployments
+            delete: zeta.delete
+server:
+    port: 9999
+app:
+    object-storage:
+        serviceUrl: http://localhost:9000
+        username: minioadmin
+        password: minioadmin
+        bucket: zeta
+    registry:
+        serviceUrl: http://localhost:5000
+    runner:
+        version: 0.0.1
+        base-image: zeta-base-runner-python:0.0.1

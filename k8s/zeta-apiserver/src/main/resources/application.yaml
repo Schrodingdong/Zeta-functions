@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: zeta-apiserver
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin
+    queues:
+      deployment: zeta.deployments
+      delete: zeta.delete
+  datasource:
+    url: jdbc:postgresql://localhost:5432/zeta
+    username: zeta
+    password: zeta
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+app:
+  object-storage:
+    serviceUrl: http://localhost:9000
+    username: minioadmin
+    password: minioadmin
+    bucket: zeta
