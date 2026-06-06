@@ -10,7 +10,7 @@ openssl req -new -key ssl/registry.key -out ssl/registry.csr -subj "/CN=registry
 
 cat > ssl/registry-ext.cnf << EOF
 [SAN]
-subjectAltName=DNS:registry.zeta.svc.cluster.local,DNS:registry-svc,IP:127.0.0.1
+subjectAltName=DNS:registry.zeta.svc.cluster.local,DNS:localhost,IP:127.0.0.1
 EOF
 
 openssl x509 -req -days 365 -in ssl/registry.csr \

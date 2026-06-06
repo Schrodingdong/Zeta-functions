@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: registry-init
+  namespace: zeta
+spec:
+  template:
+    spec:
+      volumes:
+        - name: ca-cert
+          secret:
+            secretName: registry-ca
+      containers:
+        - name: registry-init
+          image: docker:dind
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: ca-cert
+              mountPath: /usr/local/share/ca-certificates/
+          command:
+            - /bin/sh
+            - -ec
+            - |
+                echo "====== Updating SSL certs ======"
+                update-ca-certificates
+                echo "====== start dockerd ======"
+                /usr/local/bin/dockerd-entrypoint.sh &
+                echo "====== Waiting for Dockerd ======"
+                until docker info >/dev/null 2>&1; do
+                  sleep 1
+                done
+                echo "Docker daemon is ready"
+                echo "====== Pulling base runner ======"
+                docker pull ghcr.io/schrodingdong/zeta-base-runner-python:0.0.1
+                echo "====== Tagging ======"
+                docker tag ghcr.io/schrodingdong/zeta-base-runner-python:0.0.1 registry.zeta.svc.cluster.local:5000/zeta-base-runner-python:0.0.1
+                echo "====== Pushing ======"
+                docker push registry.zeta.svc.cluster.local:5000/zeta-base-runner-python:0.0.1
+      restartPolicy: Never
+  backoffLimit: 4
+  
