@@ -26,3 +26,4 @@ envsubst < registry-tls-secret.yaml | kubectl create -f -
 kubectl create -f registry-pvc.yaml
 kubectl create -f registry-deploy.yaml
 kubectl create -f registry-svc.yaml
+kubectl create -f registry-init-job.yaml
