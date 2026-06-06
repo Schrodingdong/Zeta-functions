@@ -21,9 +21,9 @@ openssl x509 -req -days 365 -in ssl/registry.csr \
 export CA_CRT=$(base64 -w 0 ssl/ca.crt)
 export TLS_CRT=$(base64 -w 0 ssl/registry.crt)
 export TLS_KEY=$(base64 -w 0 ssl/registry.key)
-envsubst < registry-ca-secret.yaml | kubectl create -f -
-envsubst < registry-tls-secret.yaml | kubectl create -f -
-kubectl create -f registry-pvc.yaml
-kubectl create -f registry-deploy.yaml
-kubectl create -f registry-svc.yaml
-kubectl create -f registry-init-job.yaml
+envsubst < registry-ca-secret.yaml | kubectl apply -f -
+envsubst < registry-tls-secret.yaml | kubectl apply -f -
+kubectl apply -f registry-pvc.yaml
+kubectl apply -f registry-deploy.yaml
+kubectl apply -f registry-svc.yaml
+kubectl apply -f registry-init-job.yaml
