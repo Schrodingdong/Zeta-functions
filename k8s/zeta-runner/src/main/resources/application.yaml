@@ -2,23 +2,25 @@ spring:
     application:
         name: zeta-runner
     rabbitmq:
-        host: localhost
-        port: 5672
-        username: admin
-        password: admin
+        host: ${SPRING_RABBITMQ_HOST}
+        port: ${SPRING_RABBITMQ_PORT}
+        username: ${SPRING_RABBITMQ_USERNAME}
+        password: ${SPRING_RABBITMQ_PASSWORD}
         queues:
-            deployment: zeta.deployments
-            delete: zeta.delete
+            deployment: ${SPRING_RABBITMQ_QUEUES_DEPLOYMENT:zeta.deployments}
+            delete: ${SPRING_RABBITMQ_QUEUES_DELETE:zeta.delete}
+
 server:
-    port: 9999
+    port: 8000
+
 app:
     object-storage:
-        serviceUrl: http://localhost:9000
-        username: minioadmin
-        password: minioadmin
-        bucket: zeta
+        serviceUrl: ${APP_OBJECT_STORAGE_SERVICEURL}
+        username: ${APP_OBJECT_STORAGE_USERNAME}
+        password: ${APP_OBJECT_STORAGE_PASSWORD}
+        bucket: ${APP_OBJECT_STORAGE_BUCKET:zeta}
     registry:
-        serviceUrl: http://localhost:5000
+        serviceUrl: ${APP_REGISTRY_SERVICEURL}
     runner:
-        version: 0.0.1
-        base-image: zeta-base-runner-python:0.0.1
+        version: ${APP_RUNNER_VERSION:-0.0.1}
+        base-image: ${APP_RUNNER_BASE_IMAGE:-zeta-base-runner-python:0.0.1}

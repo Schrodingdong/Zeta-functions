@@ -2,17 +2,17 @@ spring:
   application:
     name: zeta-apiserver
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: admin
-    password: admin
+    host: ${SPRING_RABBITMQ_HOST}
+    port: ${SPRING_RABBITMQ_PORT}
+    username: ${SPRING_RABBITMQ_USERNAME}
+    password: ${SPRING_RABBITMQ_PASSWORD}
     queues:
-      deployment: zeta.deployments
-      delete: zeta.delete
+      deployment: ${SPRING_RABBITMQ_QUEUES_DEPLOYMENT:zeta.deployments}
+      delete: ${SPRING_RABBITMQ_QUEUES_DELETE:zeta.delete}
   datasource:
-    url: jdbc:postgresql://localhost:5432/zeta
-    username: zeta
-    password: zeta
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -20,9 +20,12 @@ spring:
       ddl-auto: create-drop
     show-sql: true
 
+server:
+  port: 8080
+
 app:
   object-storage:
-    serviceUrl: http://localhost:9000
-    username: minioadmin
-    password: minioadmin
-    bucket: zeta
+    serviceUrl: ${APP_OBJECT_STORAGE_SERVICEURL}
+    username: ${APP_OBJECT_STORAGE_USERNAME}
+    password: ${APP_OBJECT_STORAGE_PASSWORD}
+    bucket: ${APP_OBJECT_STORAGE_BUCKET:zeta}

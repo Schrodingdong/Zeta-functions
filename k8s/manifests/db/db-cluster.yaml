@@ -10,6 +10,3 @@ spec:
   bootstrap:
     initdb:
       database: zeta
-      owner: zeta
-      secret:
-        name: db-secret
