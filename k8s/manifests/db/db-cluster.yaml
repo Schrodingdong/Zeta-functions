@@ -1,0 +1,15 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: db
+  namespace: zeta
+spec:
+  instances: 3
+  storage:
+    size: 1Gi
+  bootstrap:
+    initdb:
+      database: zeta
+      owner: zeta
+      secret:
+        name: db-secret
