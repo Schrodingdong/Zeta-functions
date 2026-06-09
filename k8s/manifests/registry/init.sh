@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 mkdir -p ssl
 
@@ -18,12 +18,16 @@ openssl x509 -req -days 365 -in ssl/registry.csr \
   -out ssl/registry.crt -extfile ssl/registry-ext.cnf -extensions SAN
 
 # init registry
-export CA_CRT=$(base64 -w 0 ssl/ca.crt)
-export TLS_CRT=$(base64 -w 0 ssl/registry.crt)
-export TLS_KEY=$(base64 -w 0 ssl/registry.key)
+export CA_CRT="$(base64 -w 0 ssl/ca.crt)"
+export TLS_CRT="$(base64 -w 0 ssl/registry.crt)"
+export TLS_KEY="$(base64 -w 0 ssl/registry.key)"
 envsubst < registry-ca-secret.yaml | kubectl apply -f -
 envsubst < registry-tls-secret.yaml | kubectl apply -f -
 kubectl apply -f registry-pvc.yaml
 kubectl apply -f registry-deploy.yaml
 kubectl apply -f registry-svc.yaml
 kubectl apply -f registry-init-job.yaml
+
+# Update nodes to have the registry as trusted
+export SVC_IP="$(kubectl get -n zeta svc registry -o jsonpath="{.spec.clusterIP}")"
+envsubst < registry-config-ds.yaml | kubectl apply -f -

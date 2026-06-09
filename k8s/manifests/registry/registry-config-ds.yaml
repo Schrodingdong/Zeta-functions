@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: registry-config
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: registry-config
+  template:
+    metadata:
+      labels:
+        app: registry-config
+    spec:
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: setup
+          image: alpine
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /host/etc/containerd/certs.d/${SVC_IP}:5000
+              
+              cat >/host/etc/containerd/certs.d/${SVC_IP}:5000/hosts.toml <<EOF
+              server = "https://${SVC_IP}:5000"
+              
+              [host."https://${SVC_IP}:5000"]
+                capabilities = ["pull", "resolve", "push"]
+                skip_verify = true
+              EOF
+              
+              nsenter --mount=/proc/1/ns/mnt systemctl restart containerd || true
+              
+              sleep infinity
+          volumeMounts:
+            - name: host
+              mountPath: /host
+      volumes:
+        - name: host
+          hostPath:
+            path: /
