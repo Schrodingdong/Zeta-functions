@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+
 helm repo add minio https://charts.min.io/
 helm repo update
 
