@@ -35,36 +35,35 @@ done
 
 # Deploying zeta services
 echo
-echo "=== deploying zeta-image-engine ==="
+echo "> deploying zeta-image-engine"
 docker build -t schrodi/zeta-image-engine:latest "$PWD/zeta-image-engine"
-kubectl create -f "$PWD/zeta-image-engine"
-for service in "zeta-image-engine"; do
-    echo
-    echo "> deploying $service"
-    (
-        cd "$PWD/zeta-$service/k8s-manifests" || exit 1
-        ./init.sh
-    )
-done
+(
+    cd "$PWD/zeta-image-engine/k8s-manifests" || exit 1
+    ./init.sh
+)
 
 echo
-echo "=== Exported Variables ==="
-echo "DB_NAME:         $(kubectl get secret -n zeta db-app -o jsonpath="{.data.dbname}" | base64 --decode)"
-echo "DB_USERNAME:     $(kubectl get secret -n zeta db-app -o jsonpath="{.data.username}" | base64 --decode)"
-echo "DB_PASSWORD:     $(kubectl get secret -n zeta db-app -o jsonpath="{.data.password}" | base64 --decode)"
-echo "MINIO_USERNAME:  $(kubectl get secret -n zeta minio -o jsonpath="{.data.rootUser}" | base64 --decode)"
-echo "MINIO_PASSWORD:  $(kubectl get secret -n zeta minio -o jsonpath="{.data.rootPassword}" | base64 --decode)"
-echo "RABBIT_USERNAME: $(kubectl get secret -n zeta rabbit-cluster-default-user -o jsonpath="{.data.username}" | base64 --decode)"
-echo "RABBIT_PASSWORD: $(kubectl get secret -n zeta rabbit-cluster-default-user -o jsonpath="{.data.password}" | base64 --decode)"
+echo "> Exported Variables"
+export DB_NAME="$(kubectl get secret -n zeta db-app -o jsonpath='{.data.dbname}' | base64 --decode)"
+export DB_USERNAME="$(kubectl get secret -n zeta db-app -o jsonpath='{.data.username}' | base64 --decode)"
+export DB_PASSWORD="$(kubectl get secret -n zeta db-app -o jsonpath='{.data.password}' | base64 --decode)"
+export MINIO_USERNAME="$(kubectl get secret -n zeta minio -o jsonpath='{.data.rootUser}' | base64 --decode)"
+export MINIO_PASSWORD="$(kubectl get secret -n zeta minio -o jsonpath='{.data.rootPassword}' | base64 --decode)"
+export RABBIT_USERNAME="$(kubectl get secret -n zeta rabbit-cluster-default-user -o jsonpath='{.data.username}' | base64 --decode)"
+export RABBIT_PASSWORD="$(kubectl get secret -n zeta rabbit-cluster-default-user -o jsonpath='{.data.password}' | base64 --decode)"
+export REGISTRY_CLUSTERIP="$(kubectl get svc -n zeta registry -o jsonpath="{.spec.clusterIP}")"
+echo "DB_NAME:            $DB_NAME"
+echo "DB_USERNAME:        $DB_USERNAME"
+echo "DB_PASSWORD:        $DB_PASSWORD"
+echo "MINIO_USERNAME:     $MINIO_USERNAME"
+echo "MINIO_PASSWORD:     $MINIO_PASSWORD"
+echo "RABBIT_USERNAME:    $RABBIT_USERNAME"
+echo "RABBIT_PASSWORD:    $RABBIT_PASSWORD"
+echo "REGISTRY_CLUSTERIP: $REGISTRY_CLUSTERIP"
 
-
-# Port forward
 echo
-echo "> forwarding svc/db-rw"
-kubectl port-forward -n zeta svc/db-rw 5432:5432 &
-echo "> forwarding svc/rabbit-cluster"
-kubectl port-forward -n zeta svc/rabbit-cluster 5672:5672 &
-echo "> forwarding svc/registry"
-kubectl port-forward -n zeta svc/registry 5000:5000 &
-echo "> forwarding svc/minio"
-kubectl port-forward -n zeta svc/minio 9000:9000 &
+echo "> Generating .env file"
+envsubst < ./env.template > .env
+
+echo
+echo "> Port forward the services by running: ./port-forwarding.sh"

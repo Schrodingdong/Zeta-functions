@@ -40,6 +40,10 @@ public class RunnerService {
     private static final String PREFIX = "zeta-";
     private static final Logger log = LoggerFactory.getLogger(RunnerService.class);
 
+    @Value("${app.registry.clusterIp}")
+    private String REGISTRY_CLUSTERIP;
+    @Value("${app.registry.port}")
+    private String REGISTRY_PORT;
     @Value("${app.namespace}")
     private String NAMESPACE;
     @Value("${app.runner.base-image}")
@@ -217,7 +221,7 @@ public class RunnerService {
 
 
         // Build and push the image
-        String image;
+        String image, imageTag;
         try {
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("name", zeta);
@@ -225,6 +229,7 @@ public class RunnerService {
             var imageInfo = imageEngineClient.buildImage(body);
 
             image = imageInfo.image();
+            imageTag = imageInfo.imageTag();
             log.info("Built image: {}", image);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -236,7 +241,13 @@ public class RunnerService {
         V2HorizontalPodAutoscaler hpa;
         try {
             // Create deployment
-            String deploymentJson = getDeployment(zetaDRN, image);
+            String imageWithRegistryClusterIp = String.format(
+                    "%s:%s/%s",
+                    REGISTRY_CLUSTERIP,
+                    REGISTRY_PORT,
+                    imageTag
+            );
+            String deploymentJson = getDeployment(zetaDRN, imageWithRegistryClusterIp);
             deployment = appsV1Api.createNamespacedDeployment(
                     NAMESPACE,
                     V1Deployment.fromJson(deploymentJson)

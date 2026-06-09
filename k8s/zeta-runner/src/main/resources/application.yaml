@@ -23,6 +23,8 @@ app:
         password: ${APP_OBJECT_STORAGE_PASSWORD}
         bucket: ${APP_OBJECT_STORAGE_BUCKET:zeta}
     registry:
+        clusterIp: ${APP_REGISTRY_CLUSTERIP}
+        port: ${APP_REGISTRY_PORT}
         serviceUrl: ${APP_REGISTRY_SERVICEURL}
     runner:
         version: ${APP_RUNNER_VERSION:-0.0.1}
