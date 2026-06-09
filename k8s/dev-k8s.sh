@@ -1,23 +1,7 @@
 #!/bin/bash
-echo "Initializing k8s dev env..."
 
-# Init NS
-kubectl create -f ./manifests/namespace.yaml
-
-# Init Components
-PWD=$(pwd)
-for component in db minio rabbit registry; do
-    echo
-    echo "> deploying $component"
-    (
-        cd "$PWD/manifests/$component" || exit 1
-        ./init.sh
-    )
-done
-
-# Wait until all the components are deployed
-echo
 wait_for_components() {
+  echo
   echo "waiting for components..."
   rabbit_status=$(kubectl get -n zeta pods rabbit-cluster-server-0 -o jsonpath="{.status.phase}")
   db_status=$(kubectl get -n zeta pods db-1 -o jsonpath="{.status.phase}")
@@ -28,9 +12,39 @@ wait_for_components() {
     [ "$minio_status" = "Running" ] && \
     [ "$registry_status" = "Running" ]
 }
+
+echo "Initializing k8s dev env..."
+
+# Init NS
+kubectl create -f ./manifests/namespace.yaml
+
+# Deploy dependent services
+PWD=$(pwd)
+for component in db minio rabbit registry; do
+    echo
+    echo "> deploying $component"
+    (
+        cd "$PWD/manifests/$component" || exit 1
+        ./init.sh
+    )
+done
 until wait_for_components
 do
   sleep 5
+done
+
+# Deploying zeta services
+echo
+echo "=== deploying zeta-image-engine ==="
+docker build -t schrodi/zeta-image-engine:latest "$PWD/zeta-image-engine"
+kubectl create -f "$PWD/zeta-image-engine"
+for service in "zeta-image-engine"; do
+    echo
+    echo "> deploying $service"
+    (
+        cd "$PWD/zeta-$service/k8s-manifests" || exit 1
+        ./init.sh
+    )
 done
 
 echo

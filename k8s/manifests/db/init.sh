@@ -8,4 +8,4 @@ kubectl apply \
 kubectl rollout status deployment \
   -n cnpg-system cnpg-controller-manager
 
-kubectl create -f db-cluster.yaml
+kubectl apply -f db-cluster.yaml
