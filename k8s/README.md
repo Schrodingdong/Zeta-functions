@@ -56,8 +56,10 @@ This is a rewrite of the original Zeta Functions project, utilizing the full cap
   APP_REGISTRY_SERVICEURL=http://localhost:5000
 
   # Runner Configuration TODO needs to be displayed with the ./dev-k8s.sh output
-  APP_RUNNER_VERSION=0.0.1
   APP_RUNNER_BASE_IMAGE=localhost:5000/zeta-base-runner-python:0.0.1
+  
+  # Shared config
+  APP_NAMESPACE=zeta
   ```
 - Start the `zeta-runner` and the `zeta-apiserver`
 - The user would have to write his Zeta as follows:

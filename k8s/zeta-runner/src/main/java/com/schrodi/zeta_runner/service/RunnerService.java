@@ -4,15 +4,11 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.schrodi.zeta_runner.config.RegistryConfig;
-import com.schrodi.zeta_runner.docker.DockerClient;
-import com.schrodi.zeta_runner.docker.DockerClientException;
+import com.schrodi.zeta_runner.client.ImageEngineClient;
 import com.schrodi.zeta_runner.dto.ZetaRunnerResponse;
-import com.schrodi.zeta_runner.exceptions.ZetaNotDeployedException;
 import com.schrodi.zeta_runner.exceptions.ZetaResourceNotFoundException;
 import com.schrodi.zeta_runner.model.*;
 import com.schrodi.zeta_runner.utils.ZipUtils;
@@ -27,6 +23,7 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
@@ -35,25 +32,25 @@ import com.schrodi.zeta_runner.config.MinioConfig;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
 import io.minio.MinioClient;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 @Service
 public class RunnerService {
     private static final String PREFIX = "zeta-";
-    private static final String NAMESPACE = "default";
     private static final Logger log = LoggerFactory.getLogger(RunnerService.class);
 
+    @Value("${app.namespace}")
+    private String NAMESPACE;
     @Value("${app.runner.base-image}")
     private String BASE_IMAGE;
-    @Value("${app.runner.version}")
-    private String RUNNER_VERSION;
 
     private final MinioConfig minioConfig;
     private final ResourceLoader resourceLoader;
     private final CoreV1Api coreV1Api;
     private final AppsV1Api appsV1Api;
     private final AutoscalingV2Api autoscalingV2Api;
-    private final DockerClient dockerClient;
-    private final RegistryConfig registryConfig;
+    private final ImageEngineClient imageEngineClient;
 
     public RunnerService(
             MinioConfig minioConfig,
@@ -61,16 +58,14 @@ public class RunnerService {
             CoreV1Api coreV1Api,
             AppsV1Api appsV1Api,
             AutoscalingV2Api autoscalingV2Api,
-            DockerClient dockerClient,
-            RegistryConfig registryConfig
+            ImageEngineClient imageEngineClient
     ) {
         this.minioConfig = minioConfig;
         this.resourceLoader = resourceLoader;
         this.coreV1Api = coreV1Api;
         this.appsV1Api = appsV1Api;
         this.autoscalingV2Api = autoscalingV2Api;
-        this.dockerClient = dockerClient;
-        this.registryConfig = registryConfig;
+        this.imageEngineClient = imageEngineClient;
     }
 
     /**
@@ -192,15 +187,17 @@ public class RunnerService {
         }
 
         // unzip the files
+        Path zetaTmpContentDirPath;
         try {
-            ZipUtils.unzip(zipPath, zetaTmpDirPath);
+            zetaTmpContentDirPath = Files.createTempDirectory(zetaTmpDirPath, zetaDRN + "_");
+            ZipUtils.unzip(zipPath, zetaTmpContentDirPath);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         // Add dockerfile
         try {
-            Path dockerfilePath = Files.createFile(Path.of(zetaTmpDirPath.toString(), "Dockerfile"));
+            Path dockerfilePath = Files.createFile(Path.of(zetaTmpContentDirPath.toString(), "Dockerfile"));
             String dockerfile = getRunnerDockerfile();
             Files.write(dockerfilePath, dockerfile.getBytes());
             log.info("Docker file path: {}", dockerfilePath.toAbsolutePath());
@@ -208,27 +205,28 @@ public class RunnerService {
             throw new RuntimeException(e);
         }
 
-        // Build the image
-        String image = String.format("%s-runner:%s-%d", zetaDRN, RUNNER_VERSION, Instant.now().toEpochMilli());
+        // Zip the files
+        Path newZipPath;
         try {
-            dockerClient.buildImage(image, zetaTmpDirPath);
-        } catch (DockerClientException e) {
-            throw new RuntimeException(e);
-        }
-
-        // Tag the image
-        String registryUrl = registryConfig.getServiceUrl();
-        String taggedImage = String.format("%s/%s",  registryUrl.replaceAll("http://", ""), image);
-        try {
-            dockerClient.tagImage(image, taggedImage);
+            newZipPath = Files.createTempFile(zetaTmpDirPath, "to_build_" + zetaDRN, ".zip");
+            ZipUtils.zipDirectory(zetaTmpContentDirPath, newZipPath);
+            log.info("new zip filepath: {}", newZipPath.toAbsolutePath());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        // Push to registry
+
+        // Build and push the image
+        String image;
         try {
-            dockerClient.pushToRegistry(taggedImage);
-        } catch (DockerClientException e) {
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("name", zeta);
+            body.add("file", new FileSystemResource(newZipPath));
+            var imageInfo = imageEngineClient.buildImage(body);
+
+            image = imageInfo.image();
+            log.info("Built image: {}", image);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 

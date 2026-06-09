@@ -14,6 +14,9 @@ server:
     port: 8000
 
 app:
+    namespace: ${APP_NAMESPACE}
+    image-engine:
+        url: ${APP_IMAGE_ENGINE_URL}
     object-storage:
         serviceUrl: ${APP_OBJECT_STORAGE_SERVICEURL}
         username: ${APP_OBJECT_STORAGE_USERNAME}

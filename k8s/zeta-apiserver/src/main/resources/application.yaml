@@ -24,6 +24,7 @@ server:
   port: 8080
 
 app:
+  namespace: ${APP_NAMESPACE}
   object-storage:
     serviceUrl: ${APP_OBJECT_STORAGE_SERVICEURL}
     username: ${APP_OBJECT_STORAGE_USERNAME}

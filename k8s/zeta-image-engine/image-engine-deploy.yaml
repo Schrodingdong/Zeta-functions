@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-engine
+  namespace: zeta
+spec:
+  selector:
+    matchLabels:
+      app: image-engine
+  template:
+    metadata:
+      labels:
+        app: image-engine
+    spec:
+      volumes:
+      - name: dind-certs-ca
+        emptyDir: {}
+      - name: dind-certs-client
+        emptyDir: {}
+      - name: ca-cert
+        secret:
+          secretName: registry-ca
+      containers:
+      - name: image-engine
+        image: schrodi/zeta-image-engine:latest
+        envFrom:
+        - configMapRef:
+            name: image-engine-cm
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "750m"
+        volumeMounts:
+          - mountPath: /certs/ca
+            name: dind-certs-ca
+          - mountPath: /certs/client
+            name: dind-certs-client
+          - name: ca-cert
+            mountPath: /usr/local/share/ca-certificates/
+        ports:
+          - containerPort: 8080
