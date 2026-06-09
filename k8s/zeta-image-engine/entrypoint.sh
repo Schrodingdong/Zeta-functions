@@ -13,4 +13,4 @@ done
 echo "Docker daemon is ready"
 
 echo "====== Run app ======"
-/zeta/image-engine
+/image-engine

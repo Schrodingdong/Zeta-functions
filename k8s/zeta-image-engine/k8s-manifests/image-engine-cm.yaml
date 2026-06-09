@@ -4,5 +4,5 @@ metadata:
   name: image-engine-cm
   namespace: zeta
 data:
-  REGISTRY_URL: registry.zeta.svc.cluster.local:5000
-  IMAGE_VERSION: 0.0.1
+  REGISTRY_URL: ${REGISTRY_URL}
+  IMAGE_VERSION: ${IMAGE_VERSION}

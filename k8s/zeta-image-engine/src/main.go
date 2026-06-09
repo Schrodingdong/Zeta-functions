@@ -78,9 +78,6 @@ func main() {
 		buildRes, err := apiClient.ImageBuild(context.Background(), tarBuildContext, client.ImageBuildOptions{
 			Tags: []string{image},
 		})
-		buf := new(strings.Builder)
-		io.Copy(buf, buildRes.Body)
-		fmt.Println(buf.String())
 		defer buildRes.Body.Close()
 		if err != nil {
 			panic(err)

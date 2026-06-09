@@ -1,21 +1,14 @@
-FROM docker:dind
-LABEL author="Schrodi"
-
-# Install Go
-COPY --from=golang:1.26-alpine /usr/local/go/ /usr/local/go/
-ENV PATH="/usr/local/go/bin:${PATH}"
-
-# Copy code
-WORKDIR /zeta
+FROM golang:1.26-alpine AS build
+WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY src src
+RUN go build -C src -o /image-engine
 
-# Build
-ENV DOCKER_CONTENT_TRUST=0
-RUN go build -C src -o /zeta/image-engine
+FROM docker:dind AS run
+LABEL author="Schrodi"
+COPY --from=build /image-engine /image-engine
 EXPOSE 8080
-
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
