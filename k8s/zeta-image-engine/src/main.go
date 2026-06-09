@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -68,7 +69,8 @@ func main() {
 		defer apiClient.Close()
 
 		// Build the image ------------
-		image := REGISTRY_URL + "/" + zetaName + ":" + IMAGE_VERSION
+		imageTag := zetaName + ":" + IMAGE_VERSION
+		image := REGISTRY_URL + "/" + imageTag
 		tarBuildContext, err := archive.TarWithOptions(tmpExtractedZipDir, &archive.TarOptions{})
 		if err != nil {
 			panic(err)
@@ -78,8 +80,17 @@ func main() {
 		buildRes, err := apiClient.ImageBuild(context.Background(), tarBuildContext, client.ImageBuildOptions{
 			Tags: []string{image},
 		})
-		defer buildRes.Body.Close()
 		if err != nil {
+			panic(err)
+		}
+		defer buildRes.Body.Close()
+		// Consume build output
+		scanner := bufio.NewScanner(buildRes.Body)
+		for scanner.Scan() {
+			fmt.Println(scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil {
 			panic(err)
 		}
 
@@ -91,16 +102,17 @@ func main() {
 		}
 		defer res.Close()
 		for msg, err := range res.JSONMessages(context.Background()) {
-			fmt.Println(msg)
 			if err != nil {
 				panic(err)
 			}
+			fmt.Println(msg)
 		}
 		res.Wait(context.Background())
 
 		// Return --------------------
 		c.JSON(200, gin.H{
 			"image":       image,
+			"imageTag":    imageTag,
 			"registryUrl": REGISTRY_URL,
 		})
 
