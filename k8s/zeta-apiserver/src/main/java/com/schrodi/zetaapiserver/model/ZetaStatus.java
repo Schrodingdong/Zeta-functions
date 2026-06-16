@@ -4,6 +4,7 @@ public enum ZetaStatus {
     PENDING,
     DEPLOYING,
     DEPLOYED,
+    DELETING,
     DELETED,
     ERROR
 }
