@@ -16,6 +16,7 @@ spec:
       labels:
         app: zeta-runner
     spec:
+      serviceAccountName: zeta-sa
       containers:
         - name: zeta-runner
           image: schrodi/zeta-runner:0.0.1
