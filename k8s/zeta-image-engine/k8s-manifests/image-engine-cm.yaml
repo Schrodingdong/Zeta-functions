@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: image-engine-cm
+  name: zeta-image-engine-cm
   namespace: zeta
 data:
   REGISTRY_URL: ${REGISTRY_URL}
