@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties("app.registry")
 public class RegistryConfig {
     private String serviceUrl;
+    private String clusterIp;
+    private String port;
 
     public String getServiceUrl() {
         return serviceUrl;
@@ -14,5 +16,21 @@ public class RegistryConfig {
 
     public void setServiceUrl(String serviceUrl) {
         this.serviceUrl = serviceUrl;
+    }
+
+    public String getClusterIp() {
+        return clusterIp;
+    }
+
+    public void setClusterIp(String clusterIp) {
+        this.clusterIp = clusterIp;
+    }
+
+    public String getPort() {
+        return port;
+    }
+
+    public void setPort(String port) {
+        this.port = port;
     }
 }

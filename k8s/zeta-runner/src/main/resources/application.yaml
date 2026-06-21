@@ -25,7 +25,6 @@ app:
     registry:
         clusterIp: ${APP_REGISTRY_CLUSTERIP}
         port: ${APP_REGISTRY_PORT}
-        serviceUrl: ${APP_REGISTRY_SERVICEURL}
     runner:
         version: ${APP_RUNNER_VERSION:-0.0.1}
         base-image: ${APP_RUNNER_BASE_IMAGE:-zeta-base-runner-python:0.0.1}

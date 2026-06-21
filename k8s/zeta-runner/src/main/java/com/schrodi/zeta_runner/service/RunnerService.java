@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.schrodi.zeta_runner.client.ImageEngineClient;
+import com.schrodi.zeta_runner.config.RegistryConfig;
 import com.schrodi.zeta_runner.dto.ZetaRunnerResponse;
 import com.schrodi.zeta_runner.exceptions.ZetaResourceNotFoundException;
 import com.schrodi.zeta_runner.model.*;
@@ -40,16 +41,13 @@ public class RunnerService {
     private static final String PREFIX = "zeta-";
     private static final Logger log = LoggerFactory.getLogger(RunnerService.class);
 
-    @Value("${app.registry.clusterIp}")
-    private String REGISTRY_CLUSTERIP;
-    @Value("${app.registry.port}")
-    private String REGISTRY_PORT;
     @Value("${app.namespace}")
     private String NAMESPACE;
     @Value("${app.runner.base-image}")
     private String BASE_IMAGE;
 
     private final MinioConfig minioConfig;
+    private final RegistryConfig registryConfig;
     private final ResourceLoader resourceLoader;
     private final CoreV1Api coreV1Api;
     private final AppsV1Api appsV1Api;
@@ -58,6 +56,7 @@ public class RunnerService {
 
     public RunnerService(
             MinioConfig minioConfig,
+            RegistryConfig registryConfig,
             ResourceLoader resourceLoader,
             CoreV1Api coreV1Api,
             AppsV1Api appsV1Api,
@@ -65,6 +64,7 @@ public class RunnerService {
             ImageEngineClient imageEngineClient
     ) {
         this.minioConfig = minioConfig;
+        this.registryConfig = registryConfig;
         this.resourceLoader = resourceLoader;
         this.coreV1Api = coreV1Api;
         this.appsV1Api = appsV1Api;
@@ -162,9 +162,6 @@ public class RunnerService {
         }
     }
 
-    /**
-     * Spawn a Zeta
-     */
     public ZetaRunnerResponse spawnZeta(String zeta) {
         String zetaDRN = getZetaDeploymentResourceName(zeta);
 
@@ -243,8 +240,8 @@ public class RunnerService {
             // Create deployment
             String imageWithRegistryClusterIp = String.format(
                     "%s:%s/%s",
-                    REGISTRY_CLUSTERIP,
-                    REGISTRY_PORT,
+                    registryConfig.getClusterIp(),
+                    registryConfig.getPort(),
                     imageTag
             );
             String deploymentJson = getDeployment(zetaDRN, imageWithRegistryClusterIp);
