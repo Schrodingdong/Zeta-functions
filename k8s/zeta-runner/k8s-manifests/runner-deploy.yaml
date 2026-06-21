@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zeta-runner
+  namespace: zeta
+  labels:
+    app: zeta-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zeta-runner
+  template:
+    metadata:
+      name: zeta-runner
+      labels:
+        app: zeta-runner
+    spec:
+      containers:
+        - name: zeta-runner
+          image: schrodi/zeta-runner:0.0.1
+          envFrom:
+            - configMapRef:
+                name: zeta-runner-cm
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      restartPolicy: Always
+      

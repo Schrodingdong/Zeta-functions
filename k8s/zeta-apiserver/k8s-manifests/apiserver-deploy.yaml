@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zeta-apiserver
+  namespace: zeta
+  labels:
+    app: zeta-apiserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zeta-apiserver
+  template:
+    metadata:
+      name: zeta-apiserver
+      labels:
+        app: zeta-apiserver
+    spec:
+      containers:
+        - name: zeta-apiserver
+          image: ghcr.io/schrodingdong/zeta-apiserver:0.0.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: zeta-apiserver-cm
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      restartPolicy: Always
+      
