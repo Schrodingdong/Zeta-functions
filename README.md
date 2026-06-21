@@ -10,22 +10,16 @@ This is a rewrite of the original Zeta Functions project, utilizing the full cap
 - **Zeta Deployment Resource** - A K8S resource
 - **Zeta Deployment Resource Name (DRN)** - Name of the Zeta Deployment resources 
 
-## Dev Quickstart
-### K8S infra
-- Run `./dev-k8s.sh` to initialize the k8s infra
-  - This will generate a .env following env.template
-- Port forward the service by running `./port-forwarding.sh`
-- Start the `zeta-runner` and the `zeta-apiserver`
-- The user would have to write his Zeta as follows:
-  - The entrypoint would be in a `zeta.<ext>` file, defined in `zetaHandler` function
-  - Create a zip containing the created files
-- Deploy a zeta by hitting the `localhost:8080/zetas` endpoint
-  ```sh
-  curl --location 'localhost:8080/zetas' \
-    --form 'file=@"<path-to-zip>"' \
-    --form 'name="<zetaName>"'
-  ```
-
+## Quickstart
+- make sure to have HPA added to the cluster
+````shell
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+````
+- Run `install.sh`
+- Port forward the api server 
+````shell
+kubectl port-forward -n zeta svc/zeta-apiserver 8080:80
+````
 
 ## User code example
 ### Python
