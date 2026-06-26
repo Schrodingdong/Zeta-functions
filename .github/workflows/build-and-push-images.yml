@@ -1,5 +1,6 @@
 name: Build and push container images to GHCR
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:
