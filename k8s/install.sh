@@ -69,7 +69,7 @@ export IMAGE_VERSION="0.0.1"
 
 echo
 echo "> deploying zeta-image-engine"
-docker build -t schrodi/zeta-image-engine:latest "$PWD/zeta-image-engine"
+# docker build -t schrodi/zeta-image-engine:latest "$PWD/zeta-image-engine"
 (
     cd "$PWD/zeta-image-engine/k8s-manifests" || exit 1
     ./init.sh
@@ -77,7 +77,7 @@ docker build -t schrodi/zeta-image-engine:latest "$PWD/zeta-image-engine"
 
 echo
 echo "> deploying zeta-apiserver"
-docker build -t schrodi/zeta-apiserver:0.0.1 "$PWD/zeta-apiserver"
+# docker build -t schrodi/zeta-apiserver:0.0.1 "$PWD/zeta-apiserver"
 (
     cd "$PWD/zeta-apiserver/k8s-manifests" || exit 1
     ./init.sh
@@ -85,8 +85,11 @@ docker build -t schrodi/zeta-apiserver:0.0.1 "$PWD/zeta-apiserver"
 
 echo
 echo "> deploying zeta-runner"
-docker build -t schrodi/zeta-runner:0.0.1 "$PWD/zeta-runner"
+# docker build -t schrodi/zeta-runner:0.0.1 "$PWD/zeta-runner"
 (
     cd "$PWD/zeta-runner/k8s-manifests" || exit 1
     ./init.sh
 )
+
+echo
+echo "Port forward the apiserver: kubectl port-forward -n zeta svc/zeta-apiserver 8080:80"

@@ -19,7 +19,7 @@ spec:
       serviceAccountName: zeta-sa
       containers:
         - name: zeta-runner
-          image: schrodi/zeta-runner:0.0.1
+          image: ghcr.io/schrodingdong/zeta-runner:latest
           envFrom:
             - configMapRef:
                 name: zeta-runner-cm

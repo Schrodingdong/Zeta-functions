@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: zeta-apiserver
-          image: ghcr.io/schrodingdong/zeta-apiserver:0.0.1
+          image: ghcr.io/schrodingdong/zeta-apiserver:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -22,7 +22,7 @@ spec:
           secretName: registry-ca
       containers:
       - name: zeta-image-engine
-        image: schrodi/zeta-image-engine:latest
+        image: ghcr.io/schrodingdong/zeta-image-engine:latest
         envFrom:
         - configMapRef:
             name: zeta-image-engine-cm
